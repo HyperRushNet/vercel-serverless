@@ -11,36 +11,26 @@ export default function handler(req, res) {
       return;
     }
 
-    const data = req.query.data;
+    const encoded = req.query.data;
     const type = req.query.type || "text/plain; charset=utf-8";
 
-    if (!data) {
+    if (!encoded) {
       res.status(400).send("No data parameter provided");
       return;
     }
 
-    let output;
+    // Base64 naar buffer
+    const buffer = Buffer.from(encoded, "base64");
 
-    if (type.startsWith("text/")) {
-      // Verwacht '0'/'1' string voor tekst
-      if (!/^[01]+$/.test(data) || data.length % 8 !== 0) {
-        res.status(400).send("Invalid binary string");
-        return;
-      }
-      // Splits in bytes van 8 bits
-      let chars = [];
-      for (let i = 0; i < data.length; i += 8) {
-        let byte = data.slice(i, i + 8);
-        chars.push(String.fromCharCode(parseInt(byte, 2)));
-      }
-      output = chars.join('');
+    // Voor tekst: naar UTF-8 string (emoji-proof)
+    if (type.startsWith("text/") || type.includes("json")) {
+      res.setHeader("Content-Type", type);
+      res.status(200).send(buffer.toString("utf8"));
     } else {
-      // Voor andere content blijft base64
-      output = Buffer.from(data, "base64");
+      // Voor binaire content direct sturen
+      res.setHeader("Content-Type", type);
+      res.status(200).send(buffer);
     }
-
-    res.setHeader("Content-Type", type);
-    res.status(200).send(output);
 
   } catch (err) {
     res.status(500).send("Error decoding data: " + err.message);
