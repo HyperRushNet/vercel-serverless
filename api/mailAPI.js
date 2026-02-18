@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: "Method not allowed" });
 
-  const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbyjjYmri3_TTlcRANHZLR-IghRbslxY2C-T7eJ7UzY2lPr7KN0Sv0HES7gKreT_IRcI/exec";
+  const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbyWQLAOmva1mxjUQKvpLZg3ERp52aMJgqwaAPPz1Lf8rZUxHl3V7rmEuM1HaAQIK28T/exec";
 
   try {
     const { email, code = "", action } = req.body;
