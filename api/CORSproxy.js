@@ -1,4 +1,3 @@
-// Vercel CORS Proxy // GH: HyperRushNet | MIT License | 2026
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
@@ -9,19 +8,22 @@ export default async function handler(req, res) {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "No URL specified" });
 
-    const body = ['POST','PUT','PATCH'].includes(req.method) ? JSON.stringify(req.body) : undefined;
-
     const response = await fetch(targetUrl, {
       method: req.method,
-      headers: { ...req.headers, host: new URL(targetUrl).host },
-      body,
+      headers: { 'User-Agent': 'Vercel-CORS-Proxy' },
+      body: ['POST','PUT','PATCH'].includes(req.method) ? JSON.stringify(req.body) : undefined
     });
 
-    response.headers.forEach((value, key) => res.setHeader(key, value));
-    const buffer = await response.arrayBuffer();
-    res.status(response.status).send(Buffer.from(buffer));
+    res.status(response.status);
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== 'content-encoding') res.setHeader(key, value);
+    });
+
+    const arrayBuffer = await response.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
