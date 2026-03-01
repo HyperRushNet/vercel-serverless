@@ -1,119 +1,286 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PWA Google Sign-In</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>
-  body {
-    font-family: 'Roboto', sans-serif;
-    background: #121212;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    margin: 0;
-    padding: 20px;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inloggen</title>
 
-  h1 {
-    margin-bottom: 40px;
-    font-weight: 400;
-    color: #fff;
-    text-align: center;
-  }
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-  /* Black modern button */
-  #custom-google-btn {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: #1F1F1F;
-    color: #fff;
-    border: none;
-    padding: 16px 36px;
-    font-size: 18px;
-    font-weight: 500;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.15s ease;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  }
+  <!-- Google SDK laden -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  #custom-google-btn img {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #fff;
-    padding: 2px;
-  }
+  <style>
+    :root {
+      --bg:          #000000;
+      --surface:     #0f0f0f;
+      --surface-h:   #171717;
+      --text:        #f0f0f0;
+      --text-mute:   #777777;
+      --border:      #222222;
+      --focus:       #444444;
+      --radius:      12px;
+    }
 
-  #custom-google-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-  }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-  #custom-google-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 20px;
+    }
 
-  pre {
-    background: #1F1F1F;
-    padding: 16px;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 500px;
-    overflow-x: auto;
-    margin-top: 30px;
-    color: #fff;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-  }
-</style>
+    main {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 6vw, 2.1rem);
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: -0.5px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-mute);
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      min-height: 50px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--focus);
+    }
+
+    input::placeholder { color: #555; }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      min-height: 54px;
+      transition: background 0.15s ease;
+    }
+
+    button:hover, button:focus {
+      background: var(--surface-h);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--text-mute);
+      font-size: 0.9rem;
+      margin: 8px 0;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Fix cursed knop: wrapper met color-scheme light forceert correcte rendering */
+    .google-wrapper {
+      width: 100%;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      transition: border-color 0.15s ease;
+      color-scheme: light; /* DEZE FIXT DE WITTE BACKGROUND CURSE IN DARK MODE */
+    }
+
+    .google-wrapper:hover {
+      border-color: var(--focus);
+    }
+
+    /* Overlay */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.96);
+      display: none;
+      place-items: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    #overlay.show { display: flex; }
+
+    #overlay .content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+      max-height: 85dvh;
+      overflow-y: auto;
+    }
+
+    pre {
+      font-size: 0.92rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #ddd;
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 32px 20px; }
+      main { gap: 24px; }
+      h1 { font-size: 1.9rem; }
+      input, button { font-size: 0.98rem; padding: 13px 15px; }
+    }
+  </style>
 </head>
 <body>
 
-<h1>Sign in with Google</h1>
+<main>
+  <h1>Welkom</h1>
 
-<button id="custom-google-btn">
-  <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
-  Continue with Google
-</button>
+  <form id="login-form">
+    <div class="field">
+      <label for="email">E-mail</label>
+      <input type="email" id="email" placeholder="jouw@email.com" required autocomplete="email" />
+    </div>
 
-<h2>Gebruiker info:</h2>
-<pre id="user-info">Niet ingelogd</pre>
+    <div class="field">
+      <label for="password">Wachtwoord</label>
+      <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+    </div>
+
+    <button type="submit">Inloggen / Aanmelden</button>
+  </form>
+
+  <div class="divider">of</div>
+
+  <!-- Google knop wrapper met fix -->
+  <div class="google-wrapper">
+    <div id="google-btn"></div>
+  </div>
+</main>
+
+<div id="overlay">
+  <div class="content">
+    <h2 style="font-size:1.3rem; margin-bottom:18px; color:#f0f0f0;">Gegevens</h2>
+    <pre id="user-data"></pre>
+    <button onclick="document.getElementById('overlay').classList.remove('show')"
+            style="margin-top:24px; background:transparent; border:1px solid var(--border); color:var(--text-mute); padding:12px; border-radius:var(--radius); width:100%; cursor:pointer; font-weight:500;">
+      Sluiten
+    </button>
+  </div>
+</div>
 
 <script>
-  // Callback wanneer gebruiker inlogt
-  function handleCredentialResponse(response) {
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    ).join(''));
-    const user = JSON.parse(jsonPayload);
-    document.getElementById('user-info').textContent = JSON.stringify(user, null, 2);
-  }
+  function initGoogle() {
+    if (!window.google?.accounts?.id) return;
 
-  window.onload = () => {
     google.accounts.id.initialize({
       client_id: "436345541922-lb7misltboaosc02tg48v8ij7hq5uhv8.apps.googleusercontent.com",
-      callback: handleCredentialResponse,
+      callback: handleGoogleResponse,
       auto_select: false,
-      cancel_on_tap_outside: true
+      cancel_on_tap_outside: true,
     });
 
-    // Klik op custom button
-    document.getElementById('custom-google-btn').addEventListener('click', () => {
-      // In-PWA prompt, blijft binnen app
-      google.accounts.id.prompt(); 
-      google.accounts.id.request(); 
+    google.accounts.id.renderButton(
+      document.getElementById("google-btn"),
+      {
+        type: "standard",
+        theme: "outline",  // flat look, met color-scheme fix geen witte curse meer
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular",
+        logo_alignment: "left",
+        width: "100%"
+      }
+    );
+  }
+
+  function handleGoogleResponse(response) {
+    try {
+      const payload = JSON.parse(atob(response.credential.split('.')[1]));
+      showData(payload);
+    } catch (err) {
+      showData({ error: "Google login mislukt", details: err.message });
+    }
+  }
+
+  // Wacht op SDK load
+  window.addEventListener('load', () => {
+    if (window.google?.accounts?.id) {
+      initGoogle();
+    } else {
+      setTimeout(initGoogle, 800); // fallback delay
+    }
+  });
+
+  // Email demo
+  document.getElementById("login-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const pass  = document.getElementById("password").value;
+
+    if (!email || !pass) return alert("Vul beide velden in");
+
+    showData({
+      methode: "e-mail + wachtwoord",
+      email,
+      wachtwoord: "verborgen"
     });
-  };
+  });
+
+  function showData(obj) {
+    document.getElementById("user-data").textContent = JSON.stringify(obj, null, 2);
+    document.getElementById("overlay").classList.add("show");
+  }
 </script>
-
 </body>
 </html>
