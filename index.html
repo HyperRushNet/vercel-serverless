@@ -133,7 +133,7 @@
       padding: 3px;
     }
 
-    /* Profile */
+    /* Profile screen */
     #profile-screen {
       text-align: center;
     }
@@ -203,7 +203,7 @@
       box-shadow: 0 8px 24px rgba(198,40,40,0.5);
     }
 
-    /* Overlay */
+    /* Overlay for info/errors */
     #overlay {
       position: fixed;
       inset: 0;
@@ -339,6 +339,7 @@
     if (window.google?.accounts?.id) {
       google.accounts.id.revoke();
       google.accounts.id.disableAutoSelect();
+      google.accounts.id.cancel(); // Extra reset attempt
     }
 
     loginScreen.classList.remove('hidden');
@@ -346,10 +347,11 @@
     document.getElementById('email').value = '';
     document.getElementById('password').value = '';
 
-    // Small delay + reload ensures clean Google session state
+    // Small delay to let Google reset internal state
     setTimeout(() => {
-      window.location.reload();
-    }, 400);
+      // No reload needed in most cases — but if prompt still stuck, uncomment:
+      // window.location.reload();
+    }, 600);
   }
 
   function handleCredentialResponse(response) {
