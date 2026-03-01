@@ -21,11 +21,7 @@
       --shadow-hover: 0 12px 32px rgba(0,0,0,0.75);
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin:0; padding:0; box-sizing:border-box; }
 
     body {
       font-family: 'Roboto', sans-serif;
@@ -55,7 +51,6 @@
       gap: 20px;
     }
 
-    /* Login inputs & buttons */
     input {
       width: 100%;
       padding: 16px 18px;
@@ -69,10 +64,7 @@
 
     input::placeholder { color: #777; }
 
-    input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
+    input:focus { outline: none; border-color: var(--accent); }
 
     button {
       padding: 16px 18px;
@@ -132,7 +124,7 @@
       padding: 3px;
     }
 
-    /* Profiel scherm */
+    /* Profiel */
     #profile-screen {
       text-align: center;
     }
@@ -155,9 +147,7 @@
       transition: transform 0.3s ease;
     }
 
-    .profile-photo:hover {
-      transform: scale(1.05);
-    }
+    .profile-photo:hover { transform: scale(1.05); }
 
     .profile-name {
       font-size: 2rem;
@@ -185,9 +175,7 @@
       font-size: 1.05rem;
     }
 
-    .profile-info strong {
-      color: var(--text);
-    }
+    .profile-info strong { color: var(--text); }
 
     #logout-btn {
       background: #c62828;
@@ -246,13 +234,6 @@
     #close-overlay:hover { background: #444; }
 
     .hidden { display: none !important; }
-
-    @media (max-width: 480px) {
-      body { padding: 32px 20px; }
-      .profile-photo { width: 120px; height: 120px; }
-      h1 { font-size: 2.1rem; margin-bottom: 36px; }
-      button, input { font-size: 15.5px; padding: 14px 15px; }
-    }
   </style>
 </head>
 <body>
@@ -272,7 +253,6 @@
   </button>
 </div>
 
-<!-- Profiel scherm -->
 <div class="container hidden" id="profile-screen">
   <h1>Profiel</h1>
 
@@ -292,7 +272,6 @@
   <button id="logout-btn">Uitloggen</button>
 </div>
 
-<!-- Overlay voor extra info / errors -->
 <div id="overlay">
   <div class="content">
     <h2>Info</h2>
@@ -311,7 +290,7 @@
   }
 
   function showProfile(user) {
-    const photo = user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email.split('@')[0])}&size=140&background=1f1f1f&color=f0f0f0`;
+    const photo = user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email.split('@')[0])}&size=140&background=1f1f1f&color=f5f5f5`;
     document.getElementById('profile-photo').src = photo;
 
     document.getElementById('profile-name').textContent = user.name || user.given_name || 'Gebruiker';
@@ -325,16 +304,29 @@
     loginScreen.classList.add('hidden');
     profileScreen.classList.remove('hidden');
 
-    // Sla op voor herladen pagina
     localStorage.setItem('userProfile', JSON.stringify(user));
   }
 
   function logout() {
+    // Wis lokale state
     localStorage.removeItem('userProfile');
+
+    // Wis Google credential / sessie (indien aanwezig)
+    if (window.google?.accounts?.id) {
+      google.accounts.id.revoke();           // Wis credential
+      google.accounts.id.disableAutoSelect(); // Voorkom auto-login bij reload
+    }
+
+    // Reset UI
     loginScreen.classList.remove('hidden');
     profileScreen.classList.add('hidden');
     document.getElementById('email').value = '';
     document.getElementById('password').value = '';
+
+    // Forceer reload → zorgt ervoor dat prompt weer werkt zonder refresh-handmatig
+    setTimeout(() => {
+      window.location.reload();
+    }, 300);
   }
 
   function handleCredentialResponse(response) {
@@ -362,7 +354,7 @@
       use_fedcm_for_prompt: false
     });
 
-    // Check opgeslagen profiel
+    // Herstel profiel als opgeslagen
     const saved = localStorage.getItem('userProfile');
     if (saved) {
       showProfile(JSON.parse(saved));
@@ -385,7 +377,7 @@
           given_name: email.split('@')[0],
           email: email,
           sub: 'demo-' + Date.now(),
-          picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(email.split('@')[0])}&size=140&background=1f1f1f&color=f0f0f0`,
+          picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(email.split('@')[0])}&size=140&background=1f1f1f&color=f5f5f5`,
           methode: 'E-mail'
         };
         showProfile(fakeUser);
