@@ -5,28 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login / Register</title>
 
-  <!-- Google SDK (nodig voor prompt en initialize) -->
+  <!-- Google SDK (nodig voor prompt en callback) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #121212;
+      --surface-hover: #1a1a1a;
+      --text: #f0f0f0;
+      --text-muted: #aaaaaa;
+      --border: #333333;
+      --focus: #555555;
+      --radius: 12px;
+      --shadow: 0 4px 12px rgba(0,0,0,0.5);
+      --shadow-hover: 0 8px 20px rgba(0,0,0,0.65);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Roboto', sans-serif;
-      background: #0a0a0a;
-      color: #fff;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 20px 16px;
+      padding: 24px 20px;
     }
 
     h1 {
       font-weight: 400;
-      margin-bottom: 40px;
+      font-size: clamp(1.9rem, 5.5vw, 2.4rem);
+      margin-bottom: 44px;
       text-align: center;
-      font-size: 2.2rem;
     }
 
     .auth-container {
@@ -39,43 +57,48 @@
 
     input {
       width: 100%;
-      padding: 14px 16px;
-      border-radius: 12px;
-      border: 1px solid #333;
+      padding: 15px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
       font-size: 16px;
       background: #1f1f1f;
       color: #fff;
+      transition: border-color 0.15s ease;
     }
 
     input::placeholder {
-      color: #aaa;
+      color: #888;
     }
 
     input:focus {
       outline: none;
-      border-color: #555;
+      border-color: var(--focus);
     }
 
     button {
-      padding: 14px 16px;
-      border-radius: 12px;
+      padding: 15px 16px;
+      border-radius: var(--radius);
       font-size: 16px;
       font-weight: 500;
       cursor: pointer;
       border: none;
-      transition: transform 0.1s ease, box-shadow 0.15s ease;
-      min-height: 52px;
+      transition: transform 0.12s ease, box-shadow 0.18s ease;
+      min-height: 54px;
     }
 
-    #mail-login {
+    #mail-login,
+    #custom-google-btn {
       background: #1f1f1f;
       color: #fff;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      box-shadow: var(--shadow);
     }
 
-    #mail-login:hover {
+    #mail-login:hover,
+    #custom-google-btn:hover,
+    #mail-login:focus,
+    #custom-google-btn:focus {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+      box-shadow: var(--shadow-hover);
     }
 
     .separator {
@@ -93,25 +116,15 @@
       content: '';
       flex: 1;
       border-bottom: 1px solid #333;
-      margin: 0 12px;
+      margin: 0 14px;
     }
 
-    /* Volledig custom Google knop – dezelfde stijl als mail knop */
+    /* Custom Google knop */
     #custom-google-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      background: #1f1f1f;
-      color: #fff;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 500;
-      padding: 14px 16px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      transition: transform 0.1s ease, box-shadow 0.15s ease;
-      border: none;
+      gap: 14px;
     }
 
     #custom-google-btn img {
@@ -122,17 +135,12 @@
       padding: 2px;
     }
 
-    #custom-google-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-    }
-
     /* Overlay modal – gecentreerd + verbeterd */
     #user-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.88);
-      backdrop-filter: blur(6px);
+      background: rgba(0,0,0,0.90);
+      backdrop-filter: blur(8px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -149,15 +157,15 @@
       padding: 32px 28px;
       border-radius: 16px;
       width: 100%;
-      max-width: 380px;
+      max-width: 400px;
       max-height: 85vh;
       overflow-y: auto;
       border: 1px solid #333;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+      box-shadow: 0 16px 50px rgba(0,0,0,0.8);
     }
 
     #user-overlay h2 {
-      font-size: 1.4rem;
+      font-size: 1.45rem;
       margin-bottom: 20px;
       text-align: center;
     }
@@ -165,23 +173,25 @@
     #user-overlay pre {
       text-align: left;
       background: #0d0d0d;
-      padding: 16px;
+      padding: 18px;
       border-radius: 10px;
       overflow-x: auto;
       color: #eee;
-      font-size: 0.92rem;
+      font-size: 0.94rem;
+      line-height: 1.5;
     }
 
     #close-overlay {
       margin-top: 24px;
-      padding: 12px;
-      border-radius: 12px;
+      padding: 14px;
+      border-radius: var(--radius);
       background: #333;
       color: #fff;
       cursor: pointer;
       font-weight: 500;
       width: 100%;
       border: none;
+      transition: background 0.15s ease;
     }
 
     #close-overlay:hover {
@@ -190,8 +200,9 @@
 
     @media (max-width: 480px) {
       body { padding: 32px 20px; }
-      h1 { font-size: 1.9rem; margin-bottom: 32px; }
+      h1 { font-size: 2rem; margin-bottom: 36px; }
       .auth-container { gap: 14px; }
+      button, input { font-size: 15.5px; padding: 14px 15px; }
     }
   </style>
 </head>
@@ -200,13 +211,12 @@
 <h1>Welcome</h1>
 
 <div class="auth-container">
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
+  <input type="email" id="email" placeholder="Email" autocomplete="email">
+  <input type="password" id="password" placeholder="Password" autocomplete="current-password">
   <button id="mail-login">Login / Register</button>
 
   <div class="separator">OR</div>
 
-  <!-- Volledig custom knop met officiële Google logo -->
   <button id="custom-google-btn">
     <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
     Continue with Google
@@ -229,17 +239,21 @@
   }
 
   function handleCredentialResponse(response) {
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    ).join(''));
-    const user = JSON.parse(jsonPayload);
-    showOverlay(user);
+    try {
+      const base64Url = response.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join(''));
+      const user = JSON.parse(jsonPayload);
+      showOverlay(user);
+    } catch (err) {
+      showOverlay({ error: "Google login verwerken mislukt", details: err.message });
+    }
   }
 
   window.addEventListener('load', () => {
-    // Initialiseer SDK (nodig voor prompt en callback)
+    // Initialiseer Google SDK
     google.accounts.id.initialize({
       client_id: "436345541922-lb7misltboaosc02tg48v8ij7hq5uhv8.apps.googleusercontent.com",
       callback: handleCredentialResponse,
@@ -247,12 +261,12 @@
       cancel_on_tap_outside: true
     });
 
-    // Custom knop triggert de officiële prompt
+    // Custom knop opent Google prompt
     document.getElementById('custom-google-btn').addEventListener('click', () => {
-      google.accounts.id.prompt();  // Opent de Google account selector / One Tap
+      google.accounts.id.prompt();
     });
 
-    // Mail login (zoals origineel)
+    // Mail login handler
     document.getElementById('mail-login').addEventListener('click', () => {
       const email = document.getElementById('email').value.trim();
       const pass = document.getElementById('password').value;
@@ -269,7 +283,7 @@
       document.getElementById('user-overlay').classList.remove('show');
     });
 
-    // Optioneel: sluit bij klik buiten content
+    // Sluiten bij klik buiten de content
     document.getElementById('user-overlay').addEventListener('click', e => {
       if (e.target === document.getElementById('user-overlay')) {
         document.getElementById('user-overlay').classList.remove('show');
