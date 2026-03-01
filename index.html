@@ -1,69 +1,119 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Custom Google Sign-In</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <style>
-    /* Voorbeeld custom button styling */
-    #custom-google-btn {
-      background-color: #4285F4;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    #custom-google-btn img {
-      width: 24px;
-      height: 24px;
-    }
-    #custom-google-btn:hover {
-      background-color: #357ae8;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWA Google Sign-In</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body {
+    font-family: 'Roboto', sans-serif;
+    background: #121212;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+  }
+
+  h1 {
+    margin-bottom: 40px;
+    font-weight: 400;
+    color: #fff;
+    text-align: center;
+  }
+
+  /* Black modern button */
+  #custom-google-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #1F1F1F;
+    color: #fff;
+    border: none;
+    padding: 16px 36px;
+    font-size: 18px;
+    font-weight: 500;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  #custom-google-btn img {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    padding: 2px;
+  }
+
+  #custom-google-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  }
+
+  #custom-google-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  pre {
+    background: #1F1F1F;
+    padding: 16px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
+    overflow-x: auto;
+    margin-top: 30px;
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  }
+</style>
 </head>
 <body>
-  <h1>Custom Google Sign-In Demo</h1>
 
-  <!-- Onze custom button -->
-  <button id="custom-google-btn">
-    <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
-    Sign in with Google
-  </button>
+<h1>Sign in with Google</h1>
 
-  <h2>Gebruiker info:</h2>
-  <pre id="user-info">Niet ingelogd</pre>
+<button id="custom-google-btn">
+  <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
+  Continue with Google
+</button>
 
-  <script>
-    // Callback functie voor Google Sign-In
-    function handleCredentialResponse(response) {
-      const base64Url = response.credential.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-      ).join(''));
-      const user = JSON.parse(jsonPayload);
-      document.getElementById('user-info').textContent = JSON.stringify(user, null, 2);
-    }
+<h2>Gebruiker info:</h2>
+<pre id="user-info">Niet ingelogd</pre>
 
-    window.onload = () => {
-      google.accounts.id.initialize({
-        client_id: "436345541922-lb7misltboaosc02tg48v8ij7hq5uhv8.apps.googleusercontent.com",
-        callback: handleCredentialResponse
-      });
+<script>
+  // Callback wanneer gebruiker inlogt
+  function handleCredentialResponse(response) {
+    const base64Url = response.credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+    const user = JSON.parse(jsonPayload);
+    document.getElementById('user-info').textContent = JSON.stringify(user, null, 2);
+  }
 
-      // Trigger Google login bij klik op onze custom button
-      document.getElementById('custom-google-btn').addEventListener('click', () => {
-        google.accounts.id.prompt(); // optioneel automatisch prompt
-        google.accounts.id.request(); // start de credential flow
-      });
-    };
-  </script>
+  window.onload = () => {
+    google.accounts.id.initialize({
+      client_id: "436345541922-lb7misltboaosc02tg48v8ij7hq5uhv8.apps.googleusercontent.com",
+      callback: handleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+
+    // Klik op custom button
+    document.getElementById('custom-google-btn').addEventListener('click', () => {
+      // In-PWA prompt, blijft binnen app
+      google.accounts.id.prompt(); 
+      google.accounts.id.request(); 
+    });
+  };
+</script>
+
 </body>
 </html>
