@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login / Register</title>
+  <title>Login / Profiel</title>
 
-  <!-- Google SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
@@ -39,18 +38,19 @@
     h1 {
       font-weight: 400;
       font-size: clamp(1.9rem, 5.5vw, 2.4rem);
-      margin-bottom: 44px;
+      margin-bottom: 32px;
       text-align: center;
     }
 
-    .auth-container {
+    .container {
+      width: 100%;
+      max-width: 420px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      width: 100%;
-      max-width: 380px;
+      gap: 20px;
     }
 
+    /* Login scherm */
     input {
       width: 100%;
       padding: 15px 16px;
@@ -88,9 +88,7 @@
     }
 
     #mail-login:hover,
-    #custom-google-btn:hover,
-    #mail-login:focus,
-    #custom-google-btn:focus {
+    #custom-google-btn:hover {
       transform: translateY(-2px);
       box-shadow: var(--shadow-hover);
     }
@@ -128,11 +126,63 @@
       padding: 2px;
     }
 
-    /* Overlay */
-    #user-overlay {
+    /* Profiel scherm */
+    .profile {
+      text-align: center;
+    }
+
+    .profile-photo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #333;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .profile-name {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+    }
+
+    .profile-email {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      margin-bottom: 30px;
+    }
+
+    .profile-info {
+      background: #1f1f1f;
+      padding: 20px;
+      border-radius: var(--radius);
+      border: 1px solid #333;
+      margin-bottom: 30px;
+      text-align: left;
+    }
+
+    .profile-info p {
+      margin: 12px 0;
+      font-size: 1rem;
+    }
+
+    #logout-btn {
+      background: #c62828;
+      color: white;
+      font-weight: 500;
+    }
+
+    #logout-btn:hover {
+      background: #d32f2f;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(200,40,40,0.4);
+    }
+
+    /* Overlay (voor errors of extra info) */
+    #overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.90);
+      background: rgba(0,0,0,0.88);
       backdrop-filter: blur(8px);
       display: none;
       align-items: center;
@@ -141,9 +191,9 @@
       padding: 20px;
     }
 
-    #user-overlay.show { display: flex; }
+    #overlay.show { display: flex; }
 
-    #user-overlay .content {
+    #overlay .content {
       background: #1f1f1f;
       padding: 32px 28px;
       border-radius: 16px;
@@ -153,23 +203,7 @@
       overflow-y: auto;
       border: 1px solid #333;
       box-shadow: 0 16px 50px rgba(0,0,0,0.8);
-    }
-
-    #user-overlay h2 {
-      font-size: 1.45rem;
-      margin-bottom: 20px;
       text-align: center;
-    }
-
-    #user-overlay pre {
-      text-align: left;
-      background: #0d0d0d;
-      padding: 18px;
-      border-radius: 10px;
-      overflow-x: auto;
-      color: #eee;
-      font-size: 0.94rem;
-      line-height: 1.5;
     }
 
     #close-overlay {
@@ -182,24 +216,18 @@
       font-weight: 500;
       width: 100%;
       border: none;
-      transition: background 0.15s ease;
     }
 
     #close-overlay:hover { background: #444; }
 
-    @media (max-width: 480px) {
-      body { padding: 32px 20px; }
-      h1 { font-size: 2rem; margin-bottom: 36px; }
-      .auth-container { gap: 14px; }
-      button, input { font-size: 15.5px; padding: 14px 15px; }
-    }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-<h1>Welcome</h1>
+<div class="container" id="login-screen">
+  <h1>Welcome</h1>
 
-<div class="auth-container">
   <input type="email" id="email" placeholder="Email" autocomplete="email">
   <input type="password" id="password" placeholder="Password" autocomplete="current-password">
   <button id="mail-login">Login / Register</button>
@@ -212,18 +240,67 @@
   </button>
 </div>
 
-<div id="user-overlay">
+<!-- Profiel scherm (verborgen bij start) -->
+<div class="container profile hidden" id="profile-screen">
+  <h1>Profiel</h1>
+
+  <img id="profile-photo" class="profile-photo" src="https://via.placeholder.com/120?text=?" alt="Profielfoto">
+
+  <div class="profile-name" id="profile-name">Welkom</div>
+  <div class="profile-email" id="profile-email">...</div>
+
+  <div class="profile-info">
+    <p><strong>Naam:</strong> <span id="display-name">-</span></p>
+    <p><strong>E-mail:</strong> <span id="display-email">-</span></p>
+    <p><strong>ID:</strong> <span id="user-id">-</span></p>
+    <p><strong>Ingelogd via:</strong> <span id="login-method">Onbekend</span></p>
+  </div>
+
+  <button id="logout-btn">Uitloggen</button>
+</div>
+
+<!-- Overlay voor extra info / errors -->
+<div id="overlay">
   <div class="content">
-    <h2>Gebruiker info</h2>
-    <pre id="user-info"></pre>
-    <button id="close-overlay">Sluit</button>
+    <h2>Info</h2>
+    <pre id="overlay-info"></pre>
+    <button id="close-overlay">Sluiten</button>
   </div>
 </div>
 
 <script>
-  function showOverlay(userData) {
-    document.getElementById('user-info').textContent = JSON.stringify(userData, null, 2);
-    document.getElementById('user-overlay').classList.add('show');
+  const loginScreen = document.getElementById('login-screen');
+  const profileScreen = document.getElementById('profile-screen');
+
+  function showOverlay(data) {
+    document.getElementById('overlay-info').textContent = JSON.stringify(data, null, 2);
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function showProfile(user) {
+    // Foto (Google geeft vaak picture URL)
+    const photo = user.picture || 'https://via.placeholder.com/120?text=' + (user.given_name?.[0] || '?');
+    document.getElementById('profile-photo').src = photo;
+
+    document.getElementById('profile-name').textContent = user.name || user.given_name || 'Gebruiker';
+    document.getElementById('profile-email').textContent = user.email || 'Onbekend';
+
+    document.getElementById('display-name').textContent = user.name || '-';
+    document.getElementById('display-email').textContent = user.email || '-';
+    document.getElementById('user-id').textContent = user.sub || '-';
+    document.getElementById('login-method').textContent = user.iss?.includes('google') ? 'Google' : 'E-mail';
+
+    loginScreen.classList.add('hidden');
+    profileScreen.classList.remove('hidden');
+  }
+
+  function logout() {
+    // Simpele logout: clear state + reload
+    localStorage.removeItem('user');
+    loginScreen.classList.remove('hidden');
+    profileScreen.classList.add('hidden');
+    document.getElementById('email').value = '';
+    document.getElementById('password').value = '';
   }
 
   function handleCredentialResponse(response) {
@@ -234,13 +311,14 @@
         '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
       ).join(''));
       const user = JSON.parse(jsonPayload);
-      showOverlay(user);
+      showProfile(user);
+      localStorage.setItem('user', JSON.stringify(user));
     } catch (err) {
       showOverlay({ error: "Google login verwerken mislukt", details: err.message });
     }
   }
 
-  let isPrompting = false; // voorkom dubbele prompts
+  let isPrompting = false;
 
   window.addEventListener('load', () => {
     google.accounts.id.initialize({
@@ -248,41 +326,49 @@
       callback: handleCredentialResponse,
       auto_select: false,
       cancel_on_tap_outside: true,
-      use_fedcm_for_prompt: false  // ← Belangrijk! Voorkomt FedCM cooldown → herhaald login werkt beter
+      use_fedcm_for_prompt: false  // voorkomt cooldown → beter voor herhaald testen
     });
 
-    const googleBtn = document.getElementById('custom-google-btn');
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      showProfile(JSON.parse(savedUser));
+    }
 
-    googleBtn.addEventListener('click', () => {
-      if (isPrompting) return; // voorkom spam
-
+    document.getElementById('custom-google-btn').addEventListener('click', () => {
+      if (isPrompting) return;
       isPrompting = true;
       google.accounts.id.prompt();
-
-      // Reset na korte delay (Google blokkeert soms kort na prompt)
-      setTimeout(() => { isPrompting = false; }, 2000);
+      setTimeout(() => { isPrompting = false; }, 2500);
     });
 
-    // Mail login
     document.getElementById('mail-login').addEventListener('click', () => {
       const email = document.getElementById('email').value.trim();
       const pass = document.getElementById('password').value;
 
       if (email && pass) {
-        showOverlay({ email, password: '*'.repeat(pass.length) });
+        const fakeUser = {
+          name: email.split('@')[0],
+          email: email,
+          sub: 'demo-' + Date.now(),
+          picture: 'https://via.placeholder.com/120?text=' + email[0].toUpperCase(),
+          methode: 'E-mail'
+        };
+        showProfile(fakeUser);
+        localStorage.setItem('user', JSON.stringify(fakeUser));
       } else {
         alert("Vul e-mail en wachtwoord in!");
       }
     });
 
-    // Sluiten overlay
+    document.getElementById('logout-btn').addEventListener('click', logout);
+
     document.getElementById('close-overlay').addEventListener('click', () => {
-      document.getElementById('user-overlay').classList.remove('show');
+      document.getElementById('overlay').classList.remove('show');
     });
 
-    document.getElementById('user-overlay').addEventListener('click', e => {
-      if (e.target === document.getElementById('user-overlay')) {
-        document.getElementById('user-overlay').classList.remove('show');
+    document.getElementById('overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('overlay')) {
+        document.getElementById('overlay').classList.remove('show');
       }
     });
   });
