@@ -9,19 +9,23 @@
 
   <style>
     :root {
-      --bg: #0a0a0a;
-      --surface: #121212;
-      --surface-hover: #1a1a1a;
-      --text: #f0f0f0;
-      --text-muted: #aaaaaa;
-      --border: #333333;
-      --focus: #555555;
-      --radius: 12px;
-      --shadow: 0 4px 12px rgba(0,0,0,0.5);
-      --shadow-hover: 0 8px 20px rgba(0,0,0,0.65);
+      --bg: #050505;
+      --surface: #0f0f0f;
+      --surface-hover: #181818;
+      --text: #f5f5f5;
+      --text-muted: #a0a0a0;
+      --accent: #4285f4;
+      --border: #2a2a2a;
+      --radius: 16px;
+      --shadow: 0 6px 20px rgba(0,0,0,0.6);
+      --shadow-hover: 0 12px 32px rgba(0,0,0,0.75);
     }
 
-    * { margin:0; padding:0; box-sizing:border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     body {
       font-family: 'Roboto', sans-serif;
@@ -37,9 +41,10 @@
 
     h1 {
       font-weight: 400;
-      font-size: clamp(1.9rem, 5.5vw, 2.4rem);
-      margin-bottom: 32px;
+      font-size: clamp(2rem, 6vw, 2.6rem);
+      margin-bottom: 40px;
       text-align: center;
+      letter-spacing: -0.5px;
     }
 
     .container {
@@ -50,40 +55,40 @@
       gap: 20px;
     }
 
-    /* Login scherm */
+    /* Login inputs & buttons */
     input {
       width: 100%;
-      padding: 15px 16px;
+      padding: 16px 18px;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       font-size: 16px;
-      background: #1f1f1f;
-      color: #fff;
-      transition: border-color 0.15s ease;
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color 0.2s ease;
     }
 
-    input::placeholder { color: #888; }
+    input::placeholder { color: #777; }
 
     input:focus {
       outline: none;
-      border-color: var(--focus);
+      border-color: var(--accent);
     }
 
     button {
-      padding: 15px 16px;
+      padding: 16px 18px;
       border-radius: var(--radius);
       font-size: 16px;
       font-weight: 500;
       cursor: pointer;
       border: none;
-      transition: transform 0.12s ease, box-shadow 0.18s ease;
-      min-height: 54px;
+      transition: all 0.2s ease;
+      min-height: 56px;
     }
 
     #mail-login,
     #custom-google-btn {
-      background: #1f1f1f;
-      color: #fff;
+      background: var(--surface);
+      color: var(--text);
       box-shadow: var(--shadow);
     }
 
@@ -91,13 +96,14 @@
     #custom-google-btn:hover {
       transform: translateY(-2px);
       box-shadow: var(--shadow-hover);
+      background: var(--surface-hover);
     }
 
     .separator {
       display: flex;
       align-items: center;
       text-align: center;
-      color: #888;
+      color: var(--text-muted);
       font-weight: 500;
       margin: 12px 0;
       font-size: 0.95rem;
@@ -107,8 +113,8 @@
     .separator::after {
       content: '';
       flex: 1;
-      border-bottom: 1px solid #333;
-      margin: 0 14px;
+      border-bottom: 1px solid var(--border);
+      margin: 0 16px;
     }
 
     #custom-google-btn {
@@ -123,67 +129,85 @@
       height: 28px;
       border-radius: 50%;
       background: #fff;
-      padding: 2px;
+      padding: 3px;
     }
 
     /* Profiel scherm */
-    .profile {
+    #profile-screen {
       text-align: center;
     }
 
+    .profile-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
     .profile-photo {
-      width: 120px;
-      height: 120px;
+      width: 140px;
+      height: 140px;
       border-radius: 50%;
       object-fit: cover;
-      border: 3px solid #333;
-      margin-bottom: 20px;
+      border: 4px solid var(--border);
       box-shadow: var(--shadow);
+      margin-bottom: 16px;
+      transition: transform 0.3s ease;
+    }
+
+    .profile-photo:hover {
+      transform: scale(1.05);
     }
 
     .profile-name {
-      font-size: 1.8rem;
+      font-size: 2rem;
+      font-weight: 500;
       margin-bottom: 8px;
     }
 
     .profile-email {
       font-size: 1.1rem;
       color: var(--text-muted);
-      margin-bottom: 30px;
+      margin-bottom: 24px;
     }
 
     .profile-info {
-      background: #1f1f1f;
-      padding: 20px;
+      background: var(--surface);
+      padding: 24px;
       border-radius: var(--radius);
-      border: 1px solid #333;
-      margin-bottom: 30px;
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
       text-align: left;
     }
 
     .profile-info p {
-      margin: 12px 0;
-      font-size: 1rem;
+      margin: 14px 0;
+      font-size: 1.05rem;
+    }
+
+    .profile-info strong {
+      color: var(--text);
     }
 
     #logout-btn {
       background: #c62828;
       color: white;
       font-weight: 500;
+      box-shadow: 0 4px 12px rgba(198,40,40,0.3);
     }
 
     #logout-btn:hover {
       background: #d32f2f;
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(200,40,40,0.4);
+      box-shadow: 0 8px 24px rgba(198,40,40,0.5);
     }
 
-    /* Overlay (voor errors of extra info) */
+    /* Overlay */
     #overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.88);
-      backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.92);
+      backdrop-filter: blur(10px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -194,15 +218,15 @@
     #overlay.show { display: flex; }
 
     #overlay .content {
-      background: #1f1f1f;
+      background: var(--surface);
       padding: 32px 28px;
-      border-radius: 16px;
+      border-radius: var(--radius);
       width: 100%;
-      max-width: 400px;
+      max-width: 420px;
       max-height: 85vh;
       overflow-y: auto;
-      border: 1px solid #333;
-      box-shadow: 0 16px 50px rgba(0,0,0,0.8);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-hover);
       text-align: center;
     }
 
@@ -216,11 +240,19 @@
       font-weight: 500;
       width: 100%;
       border: none;
+      transition: background 0.2s ease;
     }
 
     #close-overlay:hover { background: #444; }
 
     .hidden { display: none !important; }
+
+    @media (max-width: 480px) {
+      body { padding: 32px 20px; }
+      .profile-photo { width: 120px; height: 120px; }
+      h1 { font-size: 2.1rem; margin-bottom: 36px; }
+      button, input { font-size: 15.5px; padding: 14px 15px; }
+    }
   </style>
 </head>
 <body>
@@ -240,14 +272,15 @@
   </button>
 </div>
 
-<!-- Profiel scherm (verborgen bij start) -->
-<div class="container profile hidden" id="profile-screen">
+<!-- Profiel scherm -->
+<div class="container hidden" id="profile-screen">
   <h1>Profiel</h1>
 
-  <img id="profile-photo" class="profile-photo" src="https://via.placeholder.com/120?text=?" alt="Profielfoto">
-
-  <div class="profile-name" id="profile-name">Welkom</div>
-  <div class="profile-email" id="profile-email">...</div>
+  <div class="profile-header">
+    <img id="profile-photo" class="profile-photo" src="https://via.placeholder.com/140?text=?" alt="Profielfoto">
+    <div class="profile-name" id="profile-name">Welkom</div>
+    <div class="profile-email" id="profile-email">...</div>
+  </div>
 
   <div class="profile-info">
     <p><strong>Naam:</strong> <span id="display-name">-</span></p>
@@ -278,8 +311,7 @@
   }
 
   function showProfile(user) {
-    // Foto (Google geeft vaak picture URL)
-    const photo = user.picture || 'https://via.placeholder.com/120?text=' + (user.given_name?.[0] || '?');
+    const photo = user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email.split('@')[0])}&size=140&background=1f1f1f&color=f0f0f0`;
     document.getElementById('profile-photo').src = photo;
 
     document.getElementById('profile-name').textContent = user.name || user.given_name || 'Gebruiker';
@@ -288,15 +320,17 @@
     document.getElementById('display-name').textContent = user.name || '-';
     document.getElementById('display-email').textContent = user.email || '-';
     document.getElementById('user-id').textContent = user.sub || '-';
-    document.getElementById('login-method').textContent = user.iss?.includes('google') ? 'Google' : 'E-mail';
+    document.getElementById('login-method').textContent = user.iss?.includes('google') ? 'Google' : 'E-mail / Handmatig';
 
     loginScreen.classList.add('hidden');
     profileScreen.classList.remove('hidden');
+
+    // Sla op voor herladen pagina
+    localStorage.setItem('userProfile', JSON.stringify(user));
   }
 
   function logout() {
-    // Simpele logout: clear state + reload
-    localStorage.removeItem('user');
+    localStorage.removeItem('userProfile');
     loginScreen.classList.remove('hidden');
     profileScreen.classList.add('hidden');
     document.getElementById('email').value = '';
@@ -312,7 +346,6 @@
       ).join(''));
       const user = JSON.parse(jsonPayload);
       showProfile(user);
-      localStorage.setItem('user', JSON.stringify(user));
     } catch (err) {
       showOverlay({ error: "Google login verwerken mislukt", details: err.message });
     }
@@ -326,12 +359,13 @@
       callback: handleCredentialResponse,
       auto_select: false,
       cancel_on_tap_outside: true,
-      use_fedcm_for_prompt: false  // voorkomt cooldown → beter voor herhaald testen
+      use_fedcm_for_prompt: false
     });
 
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      showProfile(JSON.parse(savedUser));
+    // Check opgeslagen profiel
+    const saved = localStorage.getItem('userProfile');
+    if (saved) {
+      showProfile(JSON.parse(saved));
     }
 
     document.getElementById('custom-google-btn').addEventListener('click', () => {
@@ -348,13 +382,13 @@
       if (email && pass) {
         const fakeUser = {
           name: email.split('@')[0],
+          given_name: email.split('@')[0],
           email: email,
           sub: 'demo-' + Date.now(),
-          picture: 'https://via.placeholder.com/120?text=' + email[0].toUpperCase(),
+          picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(email.split('@')[0])}&size=140&background=1f1f1f&color=f0f0f0`,
           methode: 'E-mail'
         };
         showProfile(fakeUser);
-        localStorage.setItem('user', JSON.stringify(fakeUser));
       } else {
         alert("Vul e-mail en wachtwoord in!");
       }
