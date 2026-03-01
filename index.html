@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Sign-In Test</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <h1>Google Sign-In Demo</h1>
+
+  <!-- Button container -->
+  <div id="g_id_onload"
+       data-client_id="JOUW_CLIENT_ID_HIER"
+       data-login_uri=""
+       data-auto_prompt="false">
+  </div>
+
+  <div class="g_id_signin"
+       data-type="standard"
+       data-shape="rectangular"
+       data-theme="outline"
+       data-text="sign_in_with"
+       data-size="large"
+       data-logo_alignment="left">
+  </div>
+
+  <h2>Gebruiker info:</h2>
+  <pre id="user-info">Niet ingelogd</pre>
+
+  <script>
+    // Callback functie voor Google Sign-In
+    function handleCredentialResponse(response) {
+      // response.credential is een JWT
+      // Voor demo: decoderen en tonen
+      const base64Url = response.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+
+      const user = JSON.parse(jsonPayload);
+      document.getElementById('user-info').textContent = JSON.stringify(user, null, 2);
+    }
+
+    window.onload = () => {
+      google.accounts.id.initialize({
+        client_id: "436345541922-lb7misltboaosc02tg48v8ij7hq5uhv8.apps.googleusercontent.com",
+        callback: handleCredentialResponse
+      });
+
+      google.accounts.id.renderButton(
+        document.querySelector('.g_id_signin'),
+        { theme: "outline", size: "large" }  // knop stijl
+      );
+
+      // Optioneel: automatisch prompt
+      // google.accounts.id.prompt();
+    };
+  </script>
+</body>
+</html>
