@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login / Register</title>
 
-  <!-- Google SDK (nodig voor prompt en callback) -->
+  <!-- Google SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
@@ -22,11 +22,7 @@
       --shadow-hover: 0 8px 20px rgba(0,0,0,0.65);
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin:0; padding:0; box-sizing:border-box; }
 
     body {
       font-family: 'Roboto', sans-serif;
@@ -66,9 +62,7 @@
       transition: border-color 0.15s ease;
     }
 
-    input::placeholder {
-      color: #888;
-    }
+    input::placeholder { color: #888; }
 
     input:focus {
       outline: none;
@@ -119,7 +113,6 @@
       margin: 0 14px;
     }
 
-    /* Custom Google knop */
     #custom-google-btn {
       display: flex;
       align-items: center;
@@ -135,7 +128,7 @@
       padding: 2px;
     }
 
-    /* Overlay modal – gecentreerd + verbeterd */
+    /* Overlay */
     #user-overlay {
       position: fixed;
       inset: 0;
@@ -148,9 +141,7 @@
       padding: 20px;
     }
 
-    #user-overlay.show {
-      display: flex;
-    }
+    #user-overlay.show { display: flex; }
 
     #user-overlay .content {
       background: #1f1f1f;
@@ -194,9 +185,7 @@
       transition: background 0.15s ease;
     }
 
-    #close-overlay:hover {
-      background: #444;
-    }
+    #close-overlay:hover { background: #444; }
 
     @media (max-width: 480px) {
       body { padding: 32px 20px; }
@@ -223,7 +212,6 @@
   </button>
 </div>
 
-<!-- Overlay -->
 <div id="user-overlay">
   <div class="content">
     <h2>Gebruiker info</h2>
@@ -252,21 +240,30 @@
     }
   }
 
+  let isPrompting = false; // voorkom dubbele prompts
+
   window.addEventListener('load', () => {
-    // Initialiseer Google SDK
     google.accounts.id.initialize({
       client_id: "436345541922-lb7misltboaosc02tg48v8ij7hq5uhv8.apps.googleusercontent.com",
       callback: handleCredentialResponse,
       auto_select: false,
-      cancel_on_tap_outside: true
+      cancel_on_tap_outside: true,
+      use_fedcm_for_prompt: false  // ← Belangrijk! Voorkomt FedCM cooldown → herhaald login werkt beter
     });
 
-    // Custom knop opent Google prompt
-    document.getElementById('custom-google-btn').addEventListener('click', () => {
+    const googleBtn = document.getElementById('custom-google-btn');
+
+    googleBtn.addEventListener('click', () => {
+      if (isPrompting) return; // voorkom spam
+
+      isPrompting = true;
       google.accounts.id.prompt();
+
+      // Reset na korte delay (Google blokkeert soms kort na prompt)
+      setTimeout(() => { isPrompting = false; }, 2000);
     });
 
-    // Mail login handler
+    // Mail login
     document.getElementById('mail-login').addEventListener('click', () => {
       const email = document.getElementById('email').value.trim();
       const pass = document.getElementById('password').value;
@@ -283,7 +280,6 @@
       document.getElementById('user-overlay').classList.remove('show');
     });
 
-    // Sluiten bij klik buiten de content
     document.getElementById('user-overlay').addEventListener('click', e => {
       if (e.target === document.getElementById('user-overlay')) {
         document.getElementById('user-overlay').classList.remove('show');
