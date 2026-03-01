@@ -1,27 +1,26 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inloggen</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login / Register</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 
-  <!-- Google SDK laden -->
+  <!-- Google SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
     :root {
-      --bg:          #000000;
-      --surface:     #0f0f0f;
-      --surface-h:   #171717;
-      --text:        #f0f0f0;
-      --text-mute:   #777777;
-      --border:      #222222;
-      --focus:       #444444;
-      --radius:      12px;
+      --bg: #0a0a0a;
+      --surface: #121212;
+      --surface-hover: #1a1a1a;
+      --text: #f0f0f0;
+      --text-muted: #aaaaaa;
+      --border: #333333;
+      --radius: 12px;
     }
 
     * {
@@ -31,7 +30,7 @@
     }
 
     body {
-      font-family: 'Inter', system-ui, sans-serif;
+      font-family: 'Roboto', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100dvh;
@@ -39,202 +38,227 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 20px;
-    }
-
-    main {
-      width: 100%;
-      max-width: 360px;
-      display: flex;
-      flex-direction: column;
-      gap: 28px;
+      padding: 24px 20px; /* Meer zij-padding op mobile */
     }
 
     h1 {
-      font-size: clamp(1.8rem, 6vw, 2.1rem);
-      font-weight: 600;
+      font-weight: 400;
+      font-size: 2.2rem;
+      margin-bottom: 40px;
       text-align: center;
-      letter-spacing: -0.5px;
     }
 
-    form {
+    .auth-container {
       display: flex;
       flex-direction: column;
-      gap: 18px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    label {
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: var(--text-mute);
+      gap: 16px;
+      width: 100%;
+      max-width: 380px;
     }
 
     input {
       width: 100%;
       padding: 14px 16px;
-      font-size: 1rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
       border-radius: var(--radius);
-      color: var(--text);
-      min-height: 50px;
+      border: 1px solid var(--border);
+      font-size: 16px;
+      background: #1f1f1f;
+      color: #fff;
+    }
+
+    input::placeholder {
+      color: #aaa;
     }
 
     input:focus {
       outline: none;
-      border-color: var(--focus);
+      border-color: #555;
     }
-
-    input::placeholder { color: #555; }
 
     button {
-      width: 100%;
-      padding: 15px;
-      font-size: 1rem;
-      font-weight: 600;
-      background: var(--surface);
-      color: var(--text);
-      border: 1px solid var(--border);
+      padding: 14px 16px;
       border-radius: var(--radius);
+      font-size: 16px;
+      font-weight: 500;
       cursor: pointer;
-      min-height: 54px;
-      transition: background 0.15s ease;
+      border: none;
+      transition: transform 0.12s ease, box-shadow 0.18s ease;
+      min-height: 52px;
     }
 
-    button:hover, button:focus {
-      background: var(--surface-h);
+    #mail-login {
+      background: #1f1f1f;
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
     }
 
-    .divider {
+    #mail-login:hover,
+    #mail-login:focus {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+    }
+
+    .separator {
       display: flex;
       align-items: center;
-      gap: 16px;
-      color: var(--text-mute);
+      text-align: center;
+      color: #888;
+      font-weight: 500;
+      margin: 12px 0;
       font-size: 0.9rem;
-      margin: 8px 0;
     }
 
-    .divider::before,
-    .divider::after {
+    .separator::before,
+    .separator::after {
       content: '';
       flex: 1;
-      height: 1px;
-      background: var(--border);
+      border-bottom: 1px solid #333;
+      margin: 0 12px;
     }
 
-    /* Fix cursed knop: wrapper met color-scheme light forceert correcte rendering */
+    /* Custom-wrapped Google knop */
     .google-wrapper {
       width: 100%;
+      height: 52px;
       border-radius: var(--radius);
       overflow: hidden;
       border: 1px solid var(--border);
-      transition: border-color 0.15s ease;
-      color-scheme: light; /* DEZE FIXT DE WITTE BACKGROUND CURSE IN DARK MODE */
+      transition: border-color 0.15s ease, box-shadow 0.18s ease;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      color-scheme: light; /* Fix voor witte achtergrond in dark mode */
     }
 
     .google-wrapper:hover {
-      border-color: var(--focus);
+      border-color: #555;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.55);
     }
 
-    /* Overlay */
-    #overlay {
+    /* Overlay modal – gecentreerd */
+    #user-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.96);
+      background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(6px);
       display: none;
-      place-items: center;
-      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
       padding: 20px;
     }
 
-    #overlay.show { display: flex; }
+    #user-overlay.show {
+      display: flex;
+    }
 
-    #overlay .content {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 28px 24px;
+    #user-overlay .content {
+      background: #1f1f1f;
+      padding: 32px 28px;
+      border-radius: 16px;
       width: 100%;
       max-width: 380px;
       max-height: 85dvh;
       overflow-y: auto;
+      border: 1px solid #333;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.7);
     }
 
-    pre {
+    #user-overlay h2 {
+      font-size: 1.4rem;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    #user-overlay pre {
+      text-align: left;
+      background: #0d0d0d;
+      padding: 16px;
+      border-radius: 10px;
+      overflow-x: auto;
+      color: #eee;
       font-size: 0.92rem;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #ddd;
+    }
+
+    #close-overlay {
+      margin-top: 24px;
+      padding: 12px;
+      border-radius: var(--radius);
+      background: #333;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 500;
+      width: 100%;
+      border: none;
+    }
+
+    #close-overlay:hover {
+      background: #444;
     }
 
     @media (max-width: 480px) {
       body { padding: 32px 20px; }
-      main { gap: 24px; }
-      h1 { font-size: 1.9rem; }
-      input, button { font-size: 0.98rem; padding: 13px 15px; }
+      h1 { font-size: 1.9rem; margin-bottom: 32px; }
+      .auth-container { gap: 14px; }
     }
   </style>
 </head>
 <body>
 
-<main>
-  <h1>Welkom</h1>
+<h1>Welcome</h1>
 
-  <form id="login-form">
-    <div class="field">
-      <label for="email">E-mail</label>
-      <input type="email" id="email" placeholder="jouw@email.com" required autocomplete="email" />
-    </div>
+<div class="auth-container">
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button id="mail-login">Login / Register</button>
 
-    <div class="field">
-      <label for="password">Wachtwoord</label>
-      <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
-    </div>
+  <div class="separator">OR</div>
 
-    <button type="submit">Inloggen / Aanmelden</button>
-  </form>
-
-  <div class="divider">of</div>
-
-  <!-- Google knop wrapper met fix -->
+  <!-- Google SDK knop met dark mode fix -->
   <div class="google-wrapper">
     <div id="google-btn"></div>
   </div>
-</main>
+</div>
 
-<div id="overlay">
+<!-- Overlay modal -->
+<div id="user-overlay">
   <div class="content">
-    <h2 style="font-size:1.3rem; margin-bottom:18px; color:#f0f0f0;">Gegevens</h2>
-    <pre id="user-data"></pre>
-    <button onclick="document.getElementById('overlay').classList.remove('show')"
-            style="margin-top:24px; background:transparent; border:1px solid var(--border); color:var(--text-mute); padding:12px; border-radius:var(--radius); width:100%; cursor:pointer; font-weight:500;">
-      Sluiten
-    </button>
+    <h2>Gebruiker info</h2>
+    <pre id="user-info"></pre>
+    <button id="close-overlay">Sluit</button>
   </div>
 </div>
 
 <script>
+  function showOverlay(userData) {
+    document.getElementById('user-info').textContent = JSON.stringify(userData, null, 2);
+    document.getElementById('user-overlay').classList.add('show');
+  }
+
+  function handleCredentialResponse(response) {
+    const base64Url = response.credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+    const user = JSON.parse(jsonPayload);
+    showOverlay(user);
+  }
+
+  // Init Google SDK
   function initGoogle() {
     if (!window.google?.accounts?.id) return;
 
     google.accounts.id.initialize({
       client_id: "436345541922-lb7misltboaosc02tg48v8ij7hq5uhv8.apps.googleusercontent.com",
-      callback: handleGoogleResponse,
+      callback: handleCredentialResponse,
       auto_select: false,
-      cancel_on_tap_outside: true,
+      cancel_on_tap_outside: true
     });
 
     google.accounts.id.renderButton(
       document.getElementById("google-btn"),
       {
         type: "standard",
-        theme: "outline",  // flat look, met color-scheme fix geen witte curse meer
+        theme: "filled_black",     // Donkere gevulde knop – past bij je thema
         size: "large",
         text: "continue_with",
         shape: "rectangular",
@@ -244,43 +268,43 @@
     );
   }
 
-  function handleGoogleResponse(response) {
-    try {
-      const payload = JSON.parse(atob(response.credential.split('.')[1]));
-      showData(payload);
-    } catch (err) {
-      showData({ error: "Google login mislukt", details: err.message });
-    }
-  }
-
   // Wacht op SDK load
   window.addEventListener('load', () => {
     if (window.google?.accounts?.id) {
       initGoogle();
     } else {
-      setTimeout(initGoogle, 800); // fallback delay
+      const check = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(check);
+          initGoogle();
+        }
+      }, 300);
     }
   });
 
-  // Email demo
-  document.getElementById("login-form").addEventListener("submit", e => {
-    e.preventDefault();
-    const email = document.getElementById("email").value.trim();
-    const pass  = document.getElementById("password").value;
+  // Email/password handler
+  document.getElementById('mail-login').addEventListener('click', () => {
+    const email = document.getElementById('email').value.trim();
+    const pass = document.getElementById('password').value;
 
-    if (!email || !pass) return alert("Vul beide velden in");
-
-    showData({
-      methode: "e-mail + wachtwoord",
-      email,
-      wachtwoord: "verborgen"
-    });
+    if (email && pass) {
+      showOverlay({ email, password: '*'.repeat(pass.length) });
+    } else {
+      alert("Vul e-mail en wachtwoord in!");
+    }
   });
 
-  function showData(obj) {
-    document.getElementById("user-data").textContent = JSON.stringify(obj, null, 2);
-    document.getElementById("overlay").classList.add("show");
-  }
+  // Sluiten overlay
+  document.getElementById('close-overlay').addEventListener('click', () => {
+    document.getElementById('user-overlay').classList.remove('show');
+  });
+
+  // Sluiten bij klik buiten modal (optioneel maar fijn)
+  document.getElementById('user-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('user-overlay')) {
+      document.getElementById('user-overlay').classList.remove('show');
+    }
+  });
 </script>
 </body>
 </html>
