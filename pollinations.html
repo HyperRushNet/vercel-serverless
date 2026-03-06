@@ -1,38 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <title>Pollinations API Key Login</title>
+  <title>Pollinations AI Demo</title>
 </head>
 <body>
-  <h1>Login & Generate Pollinations API Key</h1>
+  <h1>Pollinations AI Demo</h1>
 
   <button id="loginBtn">🔑 Login & Get API Key</button>
+  <p id="keyMsg"></p>
 
-  <p id="message"></p>
+  <hr>
+  <h2>Genereer tekst</h2>
+  <input type="text" id="textPrompt" placeholder="Typ iets liefs..." size="40">
+  <button id="generateTextBtn">Genereer Tekst</button>
+  <pre id="textOutput"></pre>
+
+  <hr>
+  <h2>Genereer image</h2>
+  <input type="text" id="imagePrompt" placeholder="Typ een image prompt..." size="40">
+  <button id="generateImageBtn">Genereer Image</button>
+  <div id="imageOutput"></div>
 
   <script>
-    const messageEl = document.getElementById("message");
+    const keyMsg = document.getElementById("keyMsg");
     const loginBtn = document.getElementById("loginBtn");
 
-    // Als de user terugkomt met een API key in de hash, haal ’m op
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    const apiKey = hashParams.get("api_key");
+    let apiKey = hashParams.get("api_key") || localStorage.getItem("pollinations_api_key");
 
     if (apiKey) {
-      messageEl.textContent = "🎉 Je API Key is: " + apiKey;
-      // Bewaar hem in localStorage als je ‘m later wilt gebruiken:
+      keyMsg.textContent = "🎉 Je API Key is: " + apiKey;
       localStorage.setItem("pollinations_api_key", apiKey);
     }
 
     loginBtn.addEventListener("click", () => {
-      // redirect_url moet URL‑gecodeerd zijn
       const redirectUrl = encodeURIComponent(window.location.href.split("#")[0]);
-
-      // Pollinations authorize endpoint
       const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}`;
-
       window.location.href = authUrl;
+    });
+
+    // Tekst genereren
+    document.getElementById("generateTextBtn").addEventListener("click", async () => {
+      const prompt = document.getElementById("textPrompt").value;
+      if (!apiKey) return alert("Login eerst om een API key te krijgen.");
+
+      const res = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}`, {
+        headers: { "Authorization": `Bearer ${apiKey}` }
+      });
+      const data = await res.json();
+      document.getElementById("textOutput").textContent = data.text || JSON.stringify(data, null, 2);
+    });
+
+    // Image genereren
+    document.getElementById("generateImageBtn").addEventListener("click", async () => {
+      const prompt = document.getElementById("imagePrompt").value;
+      if (!apiKey) return alert("Login eerst om een API key te krijgen.");
+
+      const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`, {
+        headers: { "Authorization": `Bearer ${apiKey}` }
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const imgEl = document.createElement("img");
+      imgEl.src = url;
+      imgEl.style.maxWidth = "500px";
+      document.getElementById("imageOutput").innerHTML = "";
+      document.getElementById("imageOutput").appendChild(imgEl);
     });
   </script>
 </body>
