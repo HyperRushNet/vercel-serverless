@@ -45,7 +45,7 @@
       const prompt = document.getElementById("textPrompt").value;
       if (!apiKey) return alert("Login eerst om een API key te krijgen.");
 
-      const res = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}`, {
+      const res = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?json=true`, {
         headers: { "Authorization": `Bearer ${apiKey}` }
       });
       const data = await res.json();
@@ -57,7 +57,7 @@
       const prompt = document.getElementById("imagePrompt").value;
       if (!apiKey) return alert("Login eerst om een API key te krijgen.");
 
-      const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`, {
+      const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?json=true`, {
         headers: { "Authorization": `Bearer ${apiKey}` }
       });
       const blob = await res.blob();
