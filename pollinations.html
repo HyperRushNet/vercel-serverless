@@ -57,7 +57,7 @@
       const prompt = document.getElementById("imagePrompt").value;
       if (!apiKey) return alert("Login eerst om een API key te krijgen.");
 
-      const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?jsonMode=true`, {
+      const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`, {
         headers: { "Authorization": `Bearer ${apiKey}` }
       });
       const blob = await res.blob();
