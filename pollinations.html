@@ -40,33 +40,46 @@
       window.location.href = authUrl;
     });
 
-    // Tekst genereren
+    // Tekst genereren met JSON correctie
     document.getElementById("generateTextBtn").addEventListener("click", async () => {
-      const prompt = document.getElementById("textPrompt").value;
+      const promptInput = document.getElementById("textPrompt").value;
       if (!apiKey) return alert("Login eerst om een API key te krijgen.");
 
-      const res = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?jsonMode=true`, {
-        headers: { "Authorization": `Bearer ${apiKey}` }
-      });
-      const data = await res.json();
-      document.getElementById("textOutput").textContent = data.text || JSON.stringify(data, null, 2);
+      // Voeg expliciet "return JSON" toe voor jsonMode
+      const prompt = `Geef een JSON object met key "message" en waarde mijn tekst: ${promptInput}`;
+
+      try {
+        const res = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?jsonMode=true`, {
+          headers: { "Authorization": `Bearer ${apiKey}` }
+        });
+        const data = await res.json();
+        // Haal JSON uit data
+        document.getElementById("textOutput").textContent = data.message || JSON.stringify(data, null, 2);
+      } catch(err) {
+        document.getElementById("textOutput").textContent = "Fout: " + err.message;
+      }
     });
 
-    // Image genereren
+    // Image genereren (geen JSON nodig)
     document.getElementById("generateImageBtn").addEventListener("click", async () => {
       const prompt = document.getElementById("imagePrompt").value;
       if (!apiKey) return alert("Login eerst om een API key te krijgen.");
 
-      const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`, {
-        headers: { "Authorization": `Bearer ${apiKey}` }
-      });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const imgEl = document.createElement("img");
-      imgEl.src = url;
-      imgEl.style.maxWidth = "500px";
-      document.getElementById("imageOutput").innerHTML = "";
-      document.getElementById("imageOutput").appendChild(imgEl);
+      try {
+        const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`, {
+          headers: { "Authorization": `Bearer ${apiKey}` }
+        });
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const imgEl = document.createElement("img");
+        imgEl.src = url;
+        imgEl.style.maxWidth = "500px";
+        const outputDiv = document.getElementById("imageOutput");
+        outputDiv.innerHTML = "";
+        outputDiv.appendChild(imgEl);
+      } catch(err) {
+        document.getElementById("imageOutput").textContent = "Fout: " + err.message;
+      }
     });
   </script>
 </body>
