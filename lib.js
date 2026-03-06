@@ -4,17 +4,19 @@ export class HRNChat extends EventTarget {
     constructor(customConfig = {}) {
         super();
 
+        // --- Configuration ---
         this.CONFIG = {
             supabaseUrl: customConfig.supabaseUrl || "https://jnhsuniduzvhkpexorqk.supabase.co",
             supabaseKey: customConfig.supabaseKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuaHN1bmlkdXp2aGtwZXhvcnFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NjAxMDYsImV4cCI6MjA4NzEzNjEwNn0.9I5bbqskCgksUaNWYlFFo0-6Odht28pOMdxTGZECahY",
             mailApi: customConfig.mailApi || "https://vercel-serverless-hrn.vercel.app/api/mailAPI",
+            internetCheckUrl: customConfig.internetCheckUrl || "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js", // Fallback for internet check
             maxUsers: customConfig.maxUsers || 150,
             maxMessages: customConfig.maxMessages || 50,
             historyLoadLimit: customConfig.historyLoadLimit || 20,
             rateLimitMs: customConfig.rateLimitMs || 1000,
             verificationCodeExpiry: customConfig.verificationCodeExpiry || 600,
             maxMessageLength: customConfig.maxMessageLength || 5000,
-            requestTimeout: 3000,
+            requestTimeout: customConfig.requestTimeout || 3000,
             backgroundDisconnectMs: customConfig.backgroundDisconnectMs || 5000
         };
 
@@ -22,6 +24,7 @@ export class HRNChat extends EventTarget {
         this.DB_VERSION = 1;
         this.MAX_CACHE_SIZE = 100;
 
+        // --- State ---
         this.state = {
             user: null,
             currentRoomId: null,
@@ -57,14 +60,16 @@ export class HRNChat extends EventTarget {
             pendingRoomEntry: null,
             cryptoWorker: null,
             pendingResolvers: {},
-            selectedAllowedUsers: [] // Internal state for creating/editing rooms
+            selectedAllowedUsers: [] 
         };
 
+        // --- Initialize Supabase ---
         this.db = createClient(this.CONFIG.supabaseUrl, this.CONFIG.supabaseKey, {
             auth: { persistSession: false, autoRefreshToken: true },
             realtime: { params: { eventsPerSecond: 10 } }
         });
 
+        // --- Initialize LocalDB (IndexedDB) ---
         this.localDB = {
             db: null,
             init: () => {
@@ -447,7 +452,7 @@ export class HRNChat extends EventTarget {
     _startInternetCheck() {
         if (this.state.internetCheckInterval) return;
         this.state.internetCheckInterval = setInterval(async () => {
-            try { const response = await fetch('./assets/internet-test-file.txt', { cache: 'no-store', headers: { 'Pragma': 'no-cache' } }); if (response.ok) { this._stopInternetCheck(); if (this.state.isOfflineMode) this.goOnline(); } } catch (e) {}
+            try { const response = await fetch(this.CONFIG.internetCheckUrl, { cache: 'no-store', headers: { 'Pragma': 'no-cache' } }); if (response.ok) { this._stopInternetCheck(); if (this.state.isOfflineMode) this.goOnline(); } } catch (e) {}
         }, 5000);
     }
 
@@ -566,6 +571,21 @@ export class HRNChat extends EventTarget {
         const hashInput = await this._sha256(pass + email);
         await this.localDB.put('known_users', { id: email, pass_hash: hashInput, email: email, metadata: user.user_metadata, userId: user.id });
         return true;
+    }
+
+    async checkIfEmailExists(email) {
+        if (!email) return false;
+        // Note: Requires RPC or public profiles check. Implemented safe attempt.
+        try {
+            // Attempt 1: Check profiles table (if public)
+            const { data } = await this.db.from('profiles').select('id').eq('id', email).maybeSingle();
+            if (data) return true;
+            // Attempt 2: Try sign up logic simulation (not recommended for prod without specific RPC)
+            return false;
+        } catch (e) {
+            console.warn("Email check failed", e);
+            return false; 
+        }
     }
 
     async login(email, pass) {
