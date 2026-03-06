@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Pollinations API Key Login</title>
+</head>
+<body>
+  <h1>Login & Generate Pollinations API Key</h1>
+
+  <button id="loginBtn">🔑 Login & Get API Key</button>
+
+  <p id="message"></p>
+
+  <script>
+    const messageEl = document.getElementById("message");
+    const loginBtn = document.getElementById("loginBtn");
+
+    // Als de user terugkomt met een API key in de hash, haal ’m op
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const apiKey = hashParams.get("api_key");
+
+    if (apiKey) {
+      messageEl.textContent = "🎉 Je API Key is: " + apiKey;
+      // Bewaar hem in localStorage als je ‘m later wilt gebruiken:
+      localStorage.setItem("pollinations_api_key", apiKey);
+    }
+
+    loginBtn.addEventListener("click", () => {
+      // redirect_url moet URL‑gecodeerd zijn
+      const redirectUrl = encodeURIComponent(window.location.href.split("#")[0]);
+
+      // Pollinations authorize endpoint
+      const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}`;
+
+      window.location.href = authUrl;
+    });
+  </script>
+</body>
+</html>
