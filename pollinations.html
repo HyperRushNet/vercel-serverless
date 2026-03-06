@@ -2,84 +2,144 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <title>Pollinations AI Demo</title>
+  <title>Pollinations Chat + Images</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; }
+    button { margin: 0.5rem 0; padding: 0.5rem 1rem; }
+    input { width: 70%; padding: 0.4rem; margin-right: 0.5rem; }
+    #chatOutput { border: 1px solid #ddd; padding: 1rem; max-height: 400px; overflow-y: auto; margin-top: 1rem; }
+    .chatMessage { margin-bottom: 1rem; }
+    img { max-width: 300px; margin-top: 0.5rem; border-radius: 5px; }
+  </style>
 </head>
 <body>
-  <h1>Pollinations AI Demo</h1>
+  <h1>Pollinations Chat + Images</h1>
 
-  <button id="loginBtn">🔑 Login & Get API Key</button>
-  <p id="keyMsg"></p>
-
-  <hr>
-  <h2>Genereer tekst</h2>
-  <input type="text" id="textPrompt" placeholder="Typ iets liefs..." size="40">
-  <button id="generateTextBtn">Genereer Tekst</button>
-  <pre id="textOutput"></pre>
+  <button id="loginBtn">🔑 Login / Get API Key</button>
+  <button id="clearKeyBtn">🗑️ Verwijder API Key</button>
+  <p id="keyStatus">Geen API key gevonden</p>
 
   <hr>
-  <h2>Genereer image</h2>
-  <input type="text" id="imagePrompt" placeholder="Typ een image prompt..." size="40">
-  <button id="generateImageBtn">Genereer Image</button>
-  <div id="imageOutput"></div>
+  <h2>Chat & Image Prompt</h2>
+  <input type="text" id="chatPrompt" placeholder="Typ je bericht..." />
+  <select id="modelSelect">
+    <option value="seedream">seedream</option>
+    <option value="gptimage">gptimage</option>
+    <option value="veo">veo</option>
+    <option value="nanobanana">nanobanana</option>
+    <option value="seedream-pro">seedream-pro</option>
+  </select>
+  <button id="sendBtn">Verstuur</button>
+
+  <div id="chatOutput"></div>
 
   <script>
-    const keyMsg = document.getElementById("keyMsg");
+    const keyStatus = document.getElementById("keyStatus");
     const loginBtn = document.getElementById("loginBtn");
+    const clearKeyBtn = document.getElementById("clearKeyBtn");
+    const chatPrompt = document.getElementById("chatPrompt");
+    const sendBtn = document.getElementById("sendBtn");
+    const chatOutput = document.getElementById("chatOutput");
+    const modelSelect = document.getElementById("modelSelect");
 
+    // Haal key uit hash of localStorage
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     let apiKey = hashParams.get("api_key") || localStorage.getItem("pollinations_api_key");
 
-    if (apiKey) {
-      keyMsg.textContent = "🎉 Je API Key is: " + apiKey;
+    if (hashParams.get("api_key")) {
       localStorage.setItem("pollinations_api_key", apiKey);
+      window.location.hash = "";
     }
+
+    function updateKeyStatus() {
+      keyStatus.textContent = apiKey ? "🎉 API Key opgeslagen ✅" : "Geen API key gevonden";
+    }
+    updateKeyStatus();
 
     loginBtn.addEventListener("click", () => {
       const redirectUrl = encodeURIComponent(window.location.href.split("#")[0]);
-      const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}`;
-      window.location.href = authUrl;
+      window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}`;
     });
 
-    // Tekst genereren met JSON correctie
-    document.getElementById("generateTextBtn").addEventListener("click", async () => {
-      const promptInput = document.getElementById("textPrompt").value;
-      if (!apiKey) return alert("Login eerst om een API key te krijgen.");
+    clearKeyBtn.addEventListener("click", () => {
+      localStorage.removeItem("pollinations_api_key");
+      apiKey = null;
+      updateKeyStatus();
+      chatOutput.innerHTML = "";
+      alert("API Key verwijderd!");
+    });
 
-      // Voeg expliciet "return JSON" toe voor jsonMode
-      const prompt = `Antwoord in een JSON Object genaamd "messages", hier is mijn prompt: ${promptInput}`;
-
-      try {
-        const res = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?jsonMode=true`, {
-          headers: { "Authorization": `Bearer ${apiKey}` }
-        });
-        const data = await res.json();
-        // Haal JSON uit data
-        document.getElementById("textOutput").textContent = data.message || JSON.stringify(data, null, 2);
-      } catch(err) {
-        document.getElementById("textOutput").textContent = "Fout: " + err.message;
+    function buildStrictJsonPrompt(userMessage) {
+      return `
+      Je bent een AI-assistent die altijd antwoorden geeft in exact dit JSON-schema:
+      {
+        "reply": "<het antwoord van de AI>"
       }
-    });
+      Vul <het antwoord van de AI> met een natuurlijk antwoord op de input van de gebruiker.
+      Geef absoluut **geen extra velden**, geen uitleg, geen prompt, niets anders.
+      Gebruiker zegt: "${userMessage}"
+      `;
+    }
 
-    // Image genereren (geen JSON nodig)
-    document.getElementById("generateImageBtn").addEventListener("click", async () => {
-      const prompt = document.getElementById("imagePrompt").value;
+    sendBtn.addEventListener("click", async () => {
+      const userMessage = chatPrompt.value.trim();
+      if (!userMessage) return;
       if (!apiKey) return alert("Login eerst om een API key te krijgen.");
 
+      const selectedModel = modelSelect.value;
+
+      // Voeg user prompt direct toe aan chat-output
+      const userDiv = document.createElement("div");
+      userDiv.className = "chatMessage";
+      userDiv.innerHTML = `<strong>Jij:</strong> ${userMessage}`;
+      chatOutput.appendChild(userDiv);
+      chatPrompt.value = "";
+
+      // Bouw JSON-strict prompt
+      const prompt = buildStrictJsonPrompt(userMessage);
+
+      // Tekst (JSON) ophalen
       try {
-        const res = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`, {
+        const resText = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?jsonMode=true`, {
           headers: { "Authorization": `Bearer ${apiKey}` }
         });
-        const blob = await res.blob();
+        const dataText = await resText.json();
+
+        const aiDiv = document.createElement("div");
+        aiDiv.className = "chatMessage";
+        aiDiv.innerHTML = `<strong>AI:</strong> ${dataText.reply}`;
+        chatOutput.appendChild(aiDiv);
+
+      } catch(err) {
+        const errDiv = document.createElement("div");
+        errDiv.className = "chatMessage";
+        errDiv.innerHTML = `<strong>Fout (tekst):</strong> ${err.message}`;
+        chatOutput.appendChild(errDiv);
+      }
+
+      // Image ophalen
+      try {
+        const resImg = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(userMessage)}?model=${selectedModel}`, {
+          headers: { "Authorization": `Bearer ${apiKey}` }
+        });
+        const blob = await resImg.blob();
         const url = URL.createObjectURL(blob);
         const imgEl = document.createElement("img");
         imgEl.src = url;
-        imgEl.style.maxWidth = "500px";
-        const outputDiv = document.getElementById("imageOutput");
-        outputDiv.innerHTML = "";
-        outputDiv.appendChild(imgEl);
+        const imgDiv = document.createElement("div");
+        imgDiv.className = "chatMessage";
+        imgDiv.appendChild(imgEl);
+        chatOutput.appendChild(imgDiv);
+
       } catch(err) {
-        document.getElementById("imageOutput").textContent = "Fout: " + err.message;
+        const errDiv = document.createElement("div");
+        errDiv.className = "chatMessage";
+        errDiv.innerHTML = `<strong>Fout (image):</strong> ${err.message}`;
+        chatOutput.appendChild(errDiv);
       }
+
+      // Scroll naar onder
+      chatOutput.scrollTop = chatOutput.scrollHeight;
     });
   </script>
 </body>
