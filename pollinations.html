@@ -46,7 +46,7 @@
       if (!apiKey) return alert("Login eerst om een API key te krijgen.");
 
       // Voeg expliciet "return JSON" toe voor jsonMode
-      const prompt = `Geef een JSON object met key "message" en waarde mijn tekst: ${promptInput}`;
+      const prompt = `Antwoord in een JSON Object genaamd "messages", hier is mijn prompt: ${promptInput}`;
 
       try {
         const res = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?jsonMode=true`, {
