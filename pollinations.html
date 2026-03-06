@@ -1,146 +1,204 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="UTF-8">
-  <title>Pollinations Chat + Images</title>
-  <style>
-    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; }
-    button { margin: 0.5rem 0; padding: 0.5rem 1rem; }
-    input { width: 70%; padding: 0.4rem; margin-right: 0.5rem; }
-    #chatOutput { border: 1px solid #ddd; padding: 1rem; max-height: 400px; overflow-y: auto; margin-top: 1rem; }
-    .chatMessage { margin-bottom: 1rem; }
-    img { max-width: 300px; margin-top: 0.5rem; border-radius: 5px; }
-  </style>
+<meta charset="UTF-8">
+<title>Pollinations AI Chat</title>
+
+<style>
+body{
+font-family:Arial;
+max-width:800px;
+margin:auto;
+padding:20px;
+background:#f4f4f4;
+}
+
+button{
+padding:8px 14px;
+margin:5px;
+cursor:pointer;
+}
+
+input{
+padding:8px;
+width:70%;
+}
+
+#chat{
+background:white;
+border:1px solid #ccc;
+padding:15px;
+height:400px;
+overflow-y:auto;
+margin-top:20px;
+}
+
+.msg{
+margin-bottom:15px;
+}
+
+.ai{
+color:#0a4;
+}
+
+.user{
+color:#06c;
+}
+
+img{
+max-width:300px;
+display:block;
+margin-top:10px;
+border-radius:6px;
+}
+</style>
 </head>
+
 <body>
-  <h1>Pollinations Chat + Images</h1>
 
-  <button id="loginBtn">🔑 Login / Get API Key</button>
-  <button id="clearKeyBtn">🗑️ Verwijder API Key</button>
-  <p id="keyStatus">Geen API key gevonden</p>
+<h1>Pollinations AI Chat</h1>
 
-  <hr>
-  <h2>Chat & Image Prompt</h2>
-  <input type="text" id="chatPrompt" placeholder="Typ je bericht..." />
-  <select id="modelSelect">
-    <option value="seedream">seedream</option>
-    <option value="gptimage">gptimage</option>
-    <option value="veo">veo</option>
-    <option value="nanobanana">nanobanana</option>
-    <option value="seedream-pro">seedream-pro</option>
-  </select>
-  <button id="sendBtn">Verstuur</button>
+<button id="login">🔑 Login</button>
+<button id="logout">🗑 Remove Key</button>
 
-  <div id="chatOutput"></div>
+<p id="keystatus">Geen API key</p>
 
-  <script>
-    const keyStatus = document.getElementById("keyStatus");
-    const loginBtn = document.getElementById("loginBtn");
-    const clearKeyBtn = document.getElementById("clearKeyBtn");
-    const chatPrompt = document.getElementById("chatPrompt");
-    const sendBtn = document.getElementById("sendBtn");
-    const chatOutput = document.getElementById("chatOutput");
-    const modelSelect = document.getElementById("modelSelect");
+<hr>
 
-    // Haal key uit hash of localStorage
-    const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    let apiKey = hashParams.get("api_key") || localStorage.getItem("pollinations_api_key");
+<input id="prompt" placeholder="Typ iets...">
+<button id="send">Send</button>
 
-    if (hashParams.get("api_key")) {
-      localStorage.setItem("pollinations_api_key", apiKey);
-      window.location.hash = "";
-    }
+<div id="chat"></div>
 
-    function updateKeyStatus() {
-      keyStatus.textContent = apiKey ? "🎉 API Key opgeslagen ✅" : "Geen API key gevonden";
-    }
-    updateKeyStatus();
+<script>
 
-    loginBtn.addEventListener("click", () => {
-      const redirectUrl = encodeURIComponent(window.location.href.split("#")[0]);
-      window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}`;
-    });
+const chat = document.getElementById("chat")
+const promptInput = document.getElementById("prompt")
+const keyStatus = document.getElementById("keystatus")
 
-    clearKeyBtn.addEventListener("click", () => {
-      localStorage.removeItem("pollinations_api_key");
-      apiKey = null;
-      updateKeyStatus();
-      chatOutput.innerHTML = "";
-      alert("API Key verwijderd!");
-    });
+const hash = new URLSearchParams(window.location.hash.slice(1))
+let apiKey = hash.get("api_key") || localStorage.getItem("pollinations_key")
 
-    function buildStrictJsonPrompt(userMessage) {
-      return `
-      Je bent een AI-assistent die altijd antwoorden geeft in exact dit JSON-schema:
-      {
-        "reply": "<het antwoord van de AI>"
-      }
-      Vul <het antwoord van de AI> met een natuurlijk antwoord op de input van de gebruiker.
-      Geef absoluut **geen extra velden**, geen uitleg, geen prompt, niets anders.
-      Gebruiker zegt: "${userMessage}"
-      `;
-    }
+if(hash.get("api_key")){
+localStorage.setItem("pollinations_key",apiKey)
+window.location.hash=""
+}
 
-    sendBtn.addEventListener("click", async () => {
-      const userMessage = chatPrompt.value.trim();
-      if (!userMessage) return;
-      if (!apiKey) return alert("Login eerst om een API key te krijgen.");
+updateKey()
 
-      const selectedModel = modelSelect.value;
+function updateKey(){
+keyStatus.textContent = apiKey ? "API key opgeslagen ✅" : "Geen API key"
+}
 
-      // Voeg user prompt direct toe aan chat-output
-      const userDiv = document.createElement("div");
-      userDiv.className = "chatMessage";
-      userDiv.innerHTML = `<strong>Jij:</strong> ${userMessage}`;
-      chatOutput.appendChild(userDiv);
-      chatPrompt.value = "";
+document.getElementById("login").onclick = () => {
 
-      // Bouw JSON-strict prompt
-      const prompt = buildStrictJsonPrompt(userMessage);
+const redirect = encodeURIComponent(window.location.href.split("#")[0])
 
-      // Tekst (JSON) ophalen
-      try {
-        const resText = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?jsonMode=true`, {
-          headers: { "Authorization": `Bearer ${apiKey}` }
-        });
-        const dataText = await resText.json();
+window.location =
+`https://enter.pollinations.ai/authorize?redirect_url=${redirect}`
 
-        const aiDiv = document.createElement("div");
-        aiDiv.className = "chatMessage";
-        aiDiv.innerHTML = `<strong>AI:</strong> ${dataText.reply}`;
-        chatOutput.appendChild(aiDiv);
+}
 
-      } catch(err) {
-        const errDiv = document.createElement("div");
-        errDiv.className = "chatMessage";
-        errDiv.innerHTML = `<strong>Fout (tekst):</strong> ${err.message}`;
-        chatOutput.appendChild(errDiv);
-      }
+document.getElementById("logout").onclick = () => {
 
-      // Image ophalen
-      try {
-        const resImg = await fetch(`https://gen.pollinations.ai/image/${encodeURIComponent(userMessage)}?model=${selectedModel}`, {
-          headers: { "Authorization": `Bearer ${apiKey}` }
-        });
-        const blob = await resImg.blob();
-        const url = URL.createObjectURL(blob);
-        const imgEl = document.createElement("img");
-        imgEl.src = url;
-        const imgDiv = document.createElement("div");
-        imgDiv.className = "chatMessage";
-        imgDiv.appendChild(imgEl);
-        chatOutput.appendChild(imgDiv);
+localStorage.removeItem("pollinations_key")
+apiKey=null
+updateKey()
+chat.innerHTML=""
 
-      } catch(err) {
-        const errDiv = document.createElement("div");
-        errDiv.className = "chatMessage";
-        errDiv.innerHTML = `<strong>Fout (image):</strong> ${err.message}`;
-        chatOutput.appendChild(errDiv);
-      }
+}
 
-      // Scroll naar onder
-      chatOutput.scrollTop = chatOutput.scrollHeight;
-    });
-  </script>
+function strictPrompt(user){
+
+return `Return ONLY valid JSON in this exact format: {"reply":"text"}.
+Do not include anything else.
+User message: ${user}`
+
+}
+
+function addUser(text){
+
+const div=document.createElement("div")
+div.className="msg user"
+div.innerHTML="<b>Jij:</b> "+text
+chat.appendChild(div)
+
+}
+
+function addAI(text){
+
+const div=document.createElement("div")
+div.className="msg ai"
+div.innerHTML="<b>AI:</b> "+text
+chat.appendChild(div)
+
+}
+
+function addImage(url){
+
+const img=document.createElement("img")
+img.src=url
+chat.appendChild(img)
+
+}
+
+document.getElementById("send").onclick = async () => {
+
+const user = promptInput.value.trim()
+
+if(!user) return
+if(!apiKey) return alert("Login eerst")
+
+promptInput.value=""
+
+addUser(user)
+
+const prompt = strictPrompt(user)
+
+try{
+
+const res = await fetch(
+`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?model=openai&jsonMode=true`,
+{
+headers:{Authorization:`Bearer ${apiKey}`}
+}
+)
+
+const data = await res.json()
+
+addAI(data.reply)
+
+}catch(e){
+
+addAI("Text error")
+
+}
+
+try{
+
+const img = await fetch(
+`https://gen.pollinations.ai/image/${encodeURIComponent(user)}?model=flux`,
+{
+headers:{Authorization:`Bearer ${apiKey}`}
+}
+)
+
+const blob = await img.blob()
+const url = URL.createObjectURL(blob)
+
+addImage(url)
+
+}catch(e){
+
+addAI("Image error")
+
+}
+
+chat.scrollTop = chat.scrollHeight
+
+}
+
+</script>
+
 </body>
 </html>
