@@ -1,3 +1,4 @@
+// HRNChat.js
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 export class HRNChat extends EventTarget {
@@ -9,7 +10,6 @@ export class HRNChat extends EventTarget {
             supabaseUrl: customConfig.supabaseUrl || "https://jnhsuniduzvhkpexorqk.supabase.co",
             supabaseKey: customConfig.supabaseKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuaHN1bmlkdXp2aGtwZXhvcnFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NjAxMDYsImV4cCI6MjA4NzEzNjEwNn0.9I5bbqskCgksUaNWYlFFo0-6Odht28pOMdxTGZECahY",
             mailApi: customConfig.mailApi || "https://vercel-serverless-hrn.vercel.app/api/mailAPI",
-            internetCheckUrl: customConfig.internetCheckUrl || "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js", // Fallback for internet check
             maxUsers: customConfig.maxUsers || 150,
             maxMessages: customConfig.maxMessages || 50,
             historyLoadLimit: customConfig.historyLoadLimit || 20,
@@ -60,120 +60,15 @@ export class HRNChat extends EventTarget {
             pendingRoomEntry: null,
             cryptoWorker: null,
             pendingResolvers: {},
-            selectedAllowedUsers: [] 
+            selectedAllowedUsers: [] // Internal state for creating/editing rooms
         };
 
-        // --- Initialize Supabase ---
         this.db = createClient(this.CONFIG.supabaseUrl, this.CONFIG.supabaseKey, {
             auth: { persistSession: false, autoRefreshToken: true },
             realtime: { params: { eventsPerSecond: 10 } }
         });
 
-        // --- Initialize LocalDB (IndexedDB) ---
-        this.localDB = {
-            db: null,
-            init: () => {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
-                    request.onerror = (e) => reject(request.error);
-                    request.onsuccess = () => { this.localDB.db = request.result; resolve(); };
-                    request.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        const tx = e.target.transaction;
-                        if (!db.objectStoreNames.contains('rooms')) db.createObjectStore('rooms', { keyPath: 'id' });
-                        if (!db.objectStoreNames.contains('messages')) {
-                            const ms = db.createObjectStore('messages', { keyPath: 'id' });
-                            ms.createIndex('room_id', 'room_id', { unique: false });
-                        } else {
-                            const ms = tx.objectStore('messages');
-                            if (!ms.indexNames.contains('room_id')) ms.createIndex('room_id', 'room_id', { unique: false });
-                        }
-                        if (!db.objectStoreNames.contains('profiles')) db.createObjectStore('profiles', { keyPath: 'id' });
-                        if (!db.objectStoreNames.contains('keys')) db.createObjectStore('keys', { keyPath: 'room_id' });
-                        if (!db.objectStoreNames.contains('known_users')) db.createObjectStore('known_users', { keyPath: 'id' });
-                        if (!db.objectStoreNames.contains('user_tree')) db.createObjectStore('user_tree', { keyPath: 'user_id' });
-                    };
-                });
-            },
-            get: (store, key) => {
-                return new Promise((res, rej) => {
-                    if (!this.localDB.db) return rej("DB not init");
-                    const tx = this.localDB.db.transaction(store, 'readonly');
-                    const req = tx.objectStore(store).get(key);
-                    req.onsuccess = () => res(req.result);
-                    req.onerror = () => rej(req.error);
-                });
-            },
-            getAll: (store) => {
-                return new Promise((res, rej) => {
-                    if (!this.localDB.db) return res([]);
-                    const tx = this.localDB.db.transaction(store, 'readonly');
-                    const req = tx.objectStore(store).getAll();
-                    req.onsuccess = () => res(req.result || []);
-                    req.onerror = () => rej(req.error);
-                });
-            },
-            put: (store, val) => {
-                if (!val || !val.id) return;
-                return new Promise((res, rej) => {
-                    if (!this.localDB.db) return rej("DB not init");
-                    const tx = this.localDB.db.transaction(store, 'readwrite');
-                    tx.objectStore(store).put(val);
-                    tx.oncomplete = () => res();
-                    tx.onerror = () => rej(tx.error);
-                });
-            },
-            putAll: (store, vals) => {
-                if (!vals || vals.length === 0) return;
-                return new Promise((res, rej) => {
-                    if (!this.localDB.db) return rej("DB not init");
-                    const tx = this.localDB.db.transaction(store, 'readwrite');
-                    const os = tx.objectStore(store);
-                    vals.forEach(v => { if (v && v.id) os.put(v); });
-                    tx.oncomplete = () => res();
-                    tx.onerror = () => rej(tx.error);
-                });
-            },
-            clear: (store) => {
-                return new Promise((res, rej) => {
-                    if (!this.localDB.db) return res();
-                    const tx = this.localDB.db.transaction(store, 'readwrite');
-                    tx.objectStore(store).clear();
-                    tx.oncomplete = () => res();
-                    tx.onerror = () => rej(tx.error);
-                });
-            },
-            delete: (store, key) => {
-                return new Promise((res, rej) => {
-                    if (!this.localDB.db) return res();
-                    const tx = this.localDB.db.transaction(store, 'readwrite');
-                    tx.objectStore(store).delete(key);
-                    tx.oncomplete = () => res();
-                    tx.onerror = () => rej(tx.error);
-                });
-            },
-            getRoomMessages: async (roomId) => {
-                const all = await this.localDB.getAll('messages');
-                return all.filter(m => m.room_id === roomId).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-            },
-            clearRoomMessages: (roomId) => {
-                return new Promise((resolve, reject) => {
-                    if (!this.localDB.db) return reject();
-                    const tx = this.localDB.db.transaction('messages', 'readwrite');
-                    const store = tx.objectStore('messages');
-                    const index = store.index('room_id');
-                    const req = index.openCursor(IDBKeyRange.only(roomId));
-                    req.onsuccess = (e) => { const cursor = e.target.result; if (cursor) { cursor.delete(); cursor.continue(); } };
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = () => reject(tx.error);
-                });
-            },
-            saveUserTree: (userId, rooms) => {
-                return this.localDB.put('user_tree', { user_id: userId, room_ids: rooms.map(r => r.id), timestamp: Date.now() });
-            },
-            getUserTree: (userId) => this.localDB.get('user_tree', userId)
-        };
-
+        this.localDB = this._initLocalDB();
         this._initWorker();
     }
 
@@ -196,6 +91,110 @@ export class HRNChat extends EventTarget {
     }
 
     _safeAwait(promise) { return promise.then(data => [data, null]).catch(error => [null, error]); }
+
+    // --- Local DB (IndexedDB) ---
+    _initLocalDB() {
+        const ctx = this;
+        return {
+            db: null,
+            init: () => {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(ctx.DB_NAME, ctx.DB_VERSION);
+                    request.onerror = (e) => reject(request.error);
+                    request.onsuccess = () => { ctx.localDB.db = request.result; resolve(); };
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('rooms')) db.createObjectStore('rooms', { keyPath: 'id' });
+                        if (!db.objectStoreNames.contains('messages')) {
+                            const ms = db.createObjectStore('messages', { keyPath: 'id' });
+                            ms.createIndex('room_id', 'room_id', { unique: false });
+                        }
+                        if (!db.objectStoreNames.contains('profiles')) db.createObjectStore('profiles', { keyPath: 'id' });
+                        if (!db.objectStoreNames.contains('keys')) db.createObjectStore('keys', { keyPath: 'room_id' });
+                        if (!db.objectStoreNames.contains('known_users')) db.createObjectStore('known_users', { keyPath: 'id' });
+                        if (!db.objectStoreNames.contains('user_tree')) db.createObjectStore('user_tree', { keyPath: 'user_id' });
+                    };
+                });
+            },
+            get: (store, key) => {
+                return new Promise((res, rej) => {
+                    if (!ctx.localDB.db) return rej("DB not init");
+                    const tx = ctx.localDB.db.transaction(store, 'readonly');
+                    const req = tx.objectStore(store).get(key);
+                    req.onsuccess = () => res(req.result);
+                    req.onerror = () => rej(req.error);
+                });
+            },
+            getAll: (store) => {
+                return new Promise((res, rej) => {
+                    if (!ctx.localDB.db) return res([]);
+                    const tx = ctx.localDB.db.transaction(store, 'readonly');
+                    const req = tx.objectStore(store).getAll();
+                    req.onsuccess = () => res(req.result || []);
+                    req.onerror = () => rej(req.error);
+                });
+            },
+            put: (store, val) => {
+                if (!val || !val.id) return;
+                return new Promise((res, rej) => {
+                    if (!ctx.localDB.db) return rej("DB not init");
+                    const tx = ctx.localDB.db.transaction(store, 'readwrite');
+                    tx.objectStore(store).put(val);
+                    tx.oncomplete = () => res();
+                    tx.onerror = () => rej(tx.error);
+                });
+            },
+            putAll: (store, vals) => {
+                if (!vals || vals.length === 0) return;
+                return new Promise((res, rej) => {
+                    if (!ctx.localDB.db) return rej("DB not init");
+                    const tx = ctx.localDB.db.transaction(store, 'readwrite');
+                    const os = tx.objectStore(store);
+                    vals.forEach(v => { if (v && v.id) os.put(v); });
+                    tx.oncomplete = () => res();
+                    tx.onerror = () => rej(tx.error);
+                });
+            },
+            clear: (store) => {
+                return new Promise((res, rej) => {
+                    if (!ctx.localDB.db) return res();
+                    const tx = ctx.localDB.db.transaction(store, 'readwrite');
+                    tx.objectStore(store).clear();
+                    tx.oncomplete = () => res();
+                    tx.onerror = () => rej(tx.error);
+                });
+            },
+            delete: (store, key) => {
+                return new Promise((res, rej) => {
+                    if (!ctx.localDB.db) return res();
+                    const tx = ctx.localDB.db.transaction(store, 'readwrite');
+                    tx.objectStore(store).delete(key);
+                    tx.oncomplete = () => res();
+                    tx.onerror = () => rej(tx.error);
+                });
+            },
+            getRoomMessages: async (roomId) => {
+                const all = await ctx.localDB.getAll('messages');
+                return all.filter(m => m.room_id === roomId).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            },
+            clearRoomMessages: (roomId) => {
+                return new Promise((resolve, reject) => {
+                    if (!ctx.localDB.db) return reject();
+                    const tx = ctx.localDB.db.transaction('messages', 'readwrite');
+                    const store = tx.objectStore('messages');
+                    const index = store.index('room_id');
+                    const req = index.openCursor(IDBKeyRange.only(roomId));
+                    req.onsuccess = (e) => { const cursor = e.target.result; if (cursor) { cursor.delete(); cursor.continue(); } };
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            },
+            saveUserTree: (userId, rooms) => {
+                return ctx.localDB.put('user_tree', { user_id: userId, room_ids: rooms.map(r => r.id), timestamp: Date.now() });
+            },
+            getUserTree: (userId) => ctx.localDB.get('user_tree', userId)
+        };
+    }
 
     // --- Crypto Worker ---
     _initWorker() {
@@ -452,7 +451,7 @@ export class HRNChat extends EventTarget {
     _startInternetCheck() {
         if (this.state.internetCheckInterval) return;
         this.state.internetCheckInterval = setInterval(async () => {
-            try { const response = await fetch(this.CONFIG.internetCheckUrl, { cache: 'no-store', headers: { 'Pragma': 'no-cache' } }); if (response.ok) { this._stopInternetCheck(); if (this.state.isOfflineMode) this.goOnline(); } } catch (e) {}
+            try { const response = await fetch('./assets/internet-test-file.txt', { cache: 'no-store', headers: { 'Pragma': 'no-cache' } }); if (response.ok) { this._stopInternetCheck(); if (this.state.isOfflineMode) this.goOnline(); } } catch (e) {}
         }, 5000);
     }
 
@@ -571,21 +570,6 @@ export class HRNChat extends EventTarget {
         const hashInput = await this._sha256(pass + email);
         await this.localDB.put('known_users', { id: email, pass_hash: hashInput, email: email, metadata: user.user_metadata, userId: user.id });
         return true;
-    }
-
-    async checkIfEmailExists(email) {
-        if (!email) return false;
-        // Note: Requires RPC or public profiles check. Implemented safe attempt.
-        try {
-            // Attempt 1: Check profiles table (if public)
-            const { data } = await this.db.from('profiles').select('id').eq('id', email).maybeSingle();
-            if (data) return true;
-            // Attempt 2: Try sign up logic simulation (not recommended for prod without specific RPC)
-            return false;
-        } catch (e) {
-            console.warn("Email check failed", e);
-            return false; 
-        }
     }
 
     async login(email, pass) {
