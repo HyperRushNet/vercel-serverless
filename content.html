@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HRN Enterprise Chat</title>
+    
+    <style>
+        :root {
+            --bg-app: #000000; --bg-sidebar: #0a0a0a; --bg-chat: #0f0f0f;
+            --bg-elevated: #1a1a1a; --bg-hover: #252525; --bg-active: #2f2f2f;
+            --text-main: #ffffff; --text-muted: #888888; --text-dim: #555555;
+            --accent: #0095ff; --accent-dim: rgba(0, 149, 255, 0.15);
+            --success: #00c853; --danger: #ff3d00; --warning: #ffab00;
+            --border: #222222; --radius: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-app); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; }
+
+        .app-shell { display: flex; width: 100%; height: 100%; }
+        
+        .sidebar { width: 300px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .sb-header { padding: 20px; border-bottom: 1px solid var(--border); }
+        .user-card { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 8px; border-radius: var(--radius); transition: background 0.2s; }
+        .user-card:hover { background: var(--bg-hover); }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; overflow: hidden; flex-shrink: 0; font-size: 14px; text-transform: uppercase; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-info { flex: 1; min-width: 0; }
+        .user-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-status { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+        .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-dot.offline { background: var(--warning); }
+
+        .sb-search { padding: 12px 16px; }
+        .input-base { width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); padding: 10px 14px; border-radius: var(--radius); color: var(--text-main); font-size: 13px; outline: none; transition: all 0.2s; }
+        .input-base:focus { border-color: var(--accent); background: var(--bg-hover); }
+        
+        .room-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .room-item { padding: 12px; border-radius: var(--radius); margin-bottom: 4px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s; border: 1px solid transparent; }
+        .room-item:hover { background: var(--bg-hover); }
+        .room-item.active { background: var(--bg-active); border-color: var(--border); }
+        .room-name { font-weight: 500; font-size: 14px; }
+        .room-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        .main-view { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); position: relative; }
+        
+        .chat-header { height: 70px; padding: 0 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--bg-sidebar); flex-shrink: 0; }
+        .chat-title { display: flex; align-items: center; gap: 14px; cursor: pointer; }
+        .chat-title h2 { font-size: 16px; font-weight: 700; }
+        .chat-title span { font-size: 12px; color: var(--text-muted); }
+
+        .msgs-area { flex: 1; overflow-y: auto; padding: 24px; background: var(--bg-chat); display: flex; flex-direction: column; gap: 8px; }
+        .msg-row { display: flex; gap: 12px; max-width: 70%; }
+        .msg-row.me { align-self: flex-end; flex-direction: row-reverse; }
+        .msg-bubble { background: var(--bg-elevated); padding: 10px 14px; border-radius: 12px; border-top-left-radius: 2px; word-break: break-word; color: var(--text-main); }
+        .msg-row.me .msg-bubble { background: var(--accent); border-radius: 12px; border-top-right-radius: 2px; color: #fff; }
+        
+        .msg-head { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 4px; display: block; }
+        .msg-row.me .msg-head { display: none; }
+        
+        .msg-txt { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+        
+        .msg-time { font-size: 10px; color: var(--text-dim); margin-top: 4px; display: block; text-align: right; opacity: 0.7; }
+        .msg-row.me .msg-time { color: rgba(255,255,255,0.6); }
+
+        .chat-input-area { padding: 16px 24px; background: var(--bg-sidebar); border-top: 1px solid var(--border); }
+        .input-wrapper { display: flex; gap: 12px; align-items: flex-end; background: var(--bg-elevated); border-radius: 12px; padding: 6px 6px 6px 16px; }
+        .txt-input { flex: 1; background: transparent; border: none; resize: none; color: var(--text-main); font-size: 14px; max-height: 120px; outline: none; line-height: 1.4; }
+        .btn-send { background: var(--accent); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
+        .btn-send:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 100; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 450px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-elevated); }
+
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-input { width: 100%; background: var(--bg-app); border: 1px solid var(--border); padding: 10px 14px; border-radius: 6px; color: var(--text-main); font-size: 14px; }
+        .form-input:focus { outline: none; border-color: var(--accent); }
+        .btn { padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: all 0.2s; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-secondary { background: var(--bg-hover); color: var(--text-main); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-block { width: 100%; text-align: center; }
+
+        .user-picker-list { margin-top: 10px; border: 1px solid var(--border); border-radius: 6px; max-height: 200px; overflow-y: auto; background: var(--bg-app); }
+        .picker-item { padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+        .picker-item:last-child { border-bottom: none; }
+        .picker-item .info { display: flex; align-items: center; gap: 10px; }
+        .picker-item .info .avatar { width: 28px; height: 28px; font-size: 11px; }
+        .picker-remove { color: var(--danger); cursor: pointer; background: none; border: none; font-size: 12px; font-weight: 700; }
+
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; background: var(--bg-hover); color: var(--text-muted); margin-left: 8px; }
+        
+        .ctx-menu { position: fixed; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 8px; min-width: 140px; z-index: 2000; display: none; padding: 6px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .ctx-item { padding: 8px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .ctx-item:hover { background: var(--bg-hover); }
+        .ctx-item.danger { color: var(--danger); }
+
+        .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-dim); text-align: center; padding: 40px; }
+        
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 5000; display: flex; flex-direction: column; gap: 8px; }
+        .toast { background: var(--bg-elevated); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); animation: slideIn 0.3s ease; }
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--danger); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="app-shell">
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar hidden">
+        <div class="sb-header">
+            <div class="user-card" id="btn-profile">
+                <div class="avatar" id="sb-avatar">U</div>
+                <div class="user-info">
+                    <div class="user-name" id="sb-name">Loading...</div>
+                    <div class="user-status">
+                        <div class="status-dot online" id="sb-dot"></div>
+                        <span id="sb-status">Online</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="sb-search">
+            <input type="text" class="input-base" id="input-search" placeholder="Zoeken...">
+        </div>
+        <div class="room-list" id="room-list"></div>
+        <div style="padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px;">
+            <button class="btn btn-secondary btn-block" id="btn-create-room">+ Nieuwe Chat</button>
+            <button class="btn btn-secondary" id="btn-logout" style="width: 40px; padding: 8px 0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main View -->
+    <div id="main-view" class="main-view">
+        
+        <!-- Chat UI -->
+        <div id="chat-ui" class="hidden" style="display:flex; flex-direction:column; height:100%">
+            <div class="chat-header">
+                <div class="chat-title" id="btn-room-settings">
+                    <div class="avatar" id="chat-avatar" style="width:36px; height:36px; font-size:12px;">#</div>
+                    <div>
+                        <h2 id="chat-title-text">Room Name</h2>
+                        <span id="chat-meta">0 online</span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary" id="btn-info" style="font-size:12px">Info</button>
+                </div>
+            </div>
+            <div class="msgs-area" id="msgs-area"></div>
+            <div class="chat-input-area">
+                <div class="input-wrapper">
+                    <textarea class="txt-input" id="msg-input" rows="1" placeholder="Type een bericht..."></textarea>
+                    <button class="btn-send" id="btn-send">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-ui" class="empty-state">
+            <h2 style="margin-bottom:8px">Welkom</h2>
+            <p>Selecteer een chat of start een nieuwe.</p>
+        </div>
+    </div>
+
+    <!-- Auth Screen -->
+    <div id="auth-screen" style="position:absolute; inset:0; background:var(--bg-app); display:flex; align-items:center; justify-content:center; z-index:200;">
+        <div style="width:100%; max-width:380px; padding:20px;">
+            <div style="text-align:center; margin-bottom:30px">
+                <h1 style="font-size:28px; margin-bottom:8px">HRN Chat</h1>
+                <p style="color:var(--text-muted)">Enterprise Messaging</p>
+            </div>
+            
+            <!-- Login -->
+            <div id="auth-login">
+                <div class="form-group"><input type="email" id="login-email" class="form-input" placeholder="Email"></div>
+                <div class="form-group"><input type="password" id="login-pass" class="form-input" placeholder="Wachtwoord"></div>
+                <button class="btn btn-primary btn-block" id="btn-login">Inloggen</button>
+                <p style="margin-top:16px; text-align:center; font-size:13px; color:var(--text-muted)">Geen account? <a id="show-reg" style="color:var(--accent); cursor:pointer">Registreer</a></p>
+            </div>
+
+            <!-- Register -->
+            <div id="auth-register" class="hidden">
+                <div class="form-group"><input type="text" id="reg-name" class="form-input" placeholder="Volledige Naam"></div>
+                <div class="form-group"><input type="email" id="reg-email" class="form-input" placeholder="Email"></div>
+                <div class="form-group"><input type="password" id="reg-pass" class="form-input" placeholder="Wachtwoord (min. 8)"></div>
+                <div class="form-group"><input type="text" id="reg-avatar" class="form-input" placeholder="Avatar URL (optioneel)"></div>
+                <button class="btn btn-primary btn-block" id="btn-reg">Start Verificatie</button>
+                <p style="margin-top:16px; text-align:center; font-size:13px; color:var(--text-muted)">Al lid? <a id="show-login" style="color:var(--accent); cursor:pointer">Inloggen</a></p>
+            </div>
+
+            <!-- Verify -->
+            <div id="auth-verify" class="hidden">
+                <p style="text-align:center; margin-bottom:16px; color:var(--text-muted)">Code verstuurd naar <strong id="verify-email-display"></strong></p>
+                <div class="form-group"><input type="text" id="verify-code" class="form-input" style="text-align:center; font-size:20px; letter-spacing:4px" placeholder="000000"></div>
+                <button class="btn btn-primary btn-block" id="btn-verify">Verifiëren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal" id="modal-content">
+            <!-- Dynamic Content -->
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="ctx-menu" class="ctx-menu"></div>
+    
+    <!-- Toast -->
+    <div id="toast-container"></div>
+</div>
+
+<script type="module">
+// ==========================================
+// HRN CHAT LIBRARY
+// ==========================================
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+export class HRNChat extends EventTarget {
+    constructor(customConfig = {}) {
+        super();
+        this.CONFIG = {
+            supabaseUrl: customConfig.supabaseUrl || "https://jnhsuniduzvhkpexorqk.supabase.co",
+            supabaseKey: customConfig.supabaseKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuaHN1bmlkdXp2aGtwZXhvcnFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NjAxMDYsImV4cCI6MjA4NzEzNjEwNn0.9I5bbqskCgksUaNWYlFFo0-6Odht28pOMdxTGZECahY",
+            mailApi: customConfig.mailApi || "https://vercel-serverless-hrn.vercel.app/api/mailAPI",
+            maxUsers: customConfig.maxUsers || 150,
+            requestTimeout: 3000,
+        };
+
+        this.state = {
+            user: null,
+            currentRoomId: null,
+            currentRoomData: null,
+            allRooms: [],
+            profileCache: {},
+            isOfflineMode: false,
+            isConnecting: false,
+            chatChannel: null,
+            presenceChannel: null,
+            globalPresenceChannel: null,
+            pendingResolvers: {},
+            worker: null,
+            reconnectTimer: null
+        };
+
+        this.db = createClient(this.CONFIG.supabaseUrl, this.CONFIG.supabaseKey, { auth: { persistSession: false } });
+        this._initLocalDB();
+        this._initWorker();
+    }
+
+    _dispatch(type, detail = {}) { this.dispatchEvent(new CustomEvent(type, { detail })); }
+    
+    _initLocalDB() {
+        this.localDB = {
+            db: null,
+            init: () => {
+                return new Promise((res, rej) => {
+                    const request = indexedDB.open('HRN_LOCAL_DB_V3', 1);
+                    request.onerror = (e) => rej(e);
+                    request.onsuccess = () => { this.localDB.db = request.result; res(); };
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('profiles')) db.createObjectStore('profiles', { keyPath: 'id' });
+                        if (!db.objectStoreNames.contains('rooms')) db.createObjectStore('rooms', { keyPath: 'id' });
+                        if (!db.objectStoreNames.contains('messages')) {
+                            const ms = db.createObjectStore('messages', { keyPath: 'id' });
+                            ms.createIndex('room_id', 'room_id', { unique: false });
+                        }
+                        if (!db.objectStoreNames.contains('known_users')) db.createObjectStore('known_users', { keyPath: 'id' });
+                    };
+                });
+            },
+            get: (store, key) => new Promise((res, rej) => { const tx = this.localDB.db.transaction(store, 'readonly'); const req = tx.objectStore(store).get(key); req.onsuccess = () => res(req.result); req.onerror = rej; }),
+            getAll: (store) => new Promise((res, rej) => { const tx = this.localDB.db.transaction(store, 'readonly'); const req = tx.objectStore(store).getAll(); req.onsuccess = () => res(req.result || []); req.onerror = rej; }),
+            put: (store, val) => new Promise((res, rej) => { const tx = this.localDB.db.transaction(store, 'readwrite'); tx.objectStore(store).put(val); tx.oncomplete = res; tx.onerror = rej; }),
+            putAll: (store, vals) => new Promise((res, rej) => { const tx = this.localDB.db.transaction(store, 'readwrite'); const os = tx.objectStore(store); vals.forEach(v => os.put(v)); tx.oncomplete = res; tx.onerror = rej; }),
+            clear: (store) => new Promise((res) => { const tx = this.localDB.db.transaction(store, 'readwrite'); tx.objectStore(store).clear(); tx.oncomplete = res; }),
+            getRoomMessages: async (roomId) => (await this.localDB.getAll('messages')).filter(m => m.room_id === roomId).sort((a,b) => new Date(a.created_at) - new Date(b.created_at))
+        };
+    }
+
+    _initWorker() {
+        const code = `
+            self.onmessage = async (e) => { 
+                const { id, type, payload } = e.data; 
+                const enc = new TextEncoder(), dec = new TextDecoder();
+                self.keys = self.keys || {};
+                try { 
+                    if (type === 'derive') { 
+                        const key = await crypto.subtle.importKey('raw', enc.encode(payload.pass), { name: 'PBKDF2' }, false, ['deriveKey']);
+                        const k = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: enc.encode(payload.salt), iterations: 100000, hash: 'SHA-256' }, key, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+                        self.keys[payload.id] = k; self.postMessage({ id, type: 'derived' });
+                    } else if (type === 'encrypt') { 
+                        const iv = crypto.getRandomValues(new Uint8Array(12));
+                        const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, self.keys[payload.id], enc.encode(payload.text));
+                        const comb = new Uint8Array(iv.length + ct.byteLength); comb.set(iv, 0); comb.set(new Uint8Array(ct), iv.length);
+                        self.postMessage({ id, type: 'encrypted', res: btoa(String.fromCharCode(...comb)) });
+                    } else if (type === 'decrypt') { 
+                        if(!payload.text || payload.text === '/') self.postMessage({ id, type: 'decrypted', res: { deleted: true } });
+                        else {
+                            const bin = atob(payload.text); const bytes = new Uint8Array(bin.length); for(let i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                            const iv = bytes.slice(0, 12), ct = bytes.slice(12);
+                            const decr = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, self.keys[payload.id], ct);
+                            const raw = dec.decode(decr);
+                            const idx = raw.indexOf('|');
+                            let time = "", text = raw;
+                            if (idx !== -1) { time = raw.substring(0, idx); text = raw.substring(idx + 1); }
+                            self.postMessage({ id, type: 'decrypted', res: { time, text } });
+                        }
+                    }
+                } catch (err) { self.postMessage({ id, type: 'error', err: err.message }); }
+            };
+        `;
+        const blob = new Blob([code], { type: 'application/javascript' });
+        this.state.worker = new Worker(URL.createObjectURL(blob));
+        this.state.worker.onmessage = (e) => {
+            const { id, res, err } = e.data;
+            if (this.state.pendingResolvers[id]) {
+                if (err) this.state.pendingResolvers[id].reject(err);
+                else this.state.pendingResolvers[id].resolve(res);
+                delete this.state.pendingResolvers[id];
+            }
+        };
+    }
+
+    _worker(type, payload) {
+        return new Promise((res, rej) => {
+            const id = crypto.randomUUID();
+            this.state.pendingResolvers[id] = { resolve: res, reject: rej };
+            this.state.worker.postMessage({ id, type, payload });
+        });
+    }
+
+    async _sha256(t) { const b = new TextEncoder().encode(t); const h = await crypto.subtle.digest('SHA-256', b); return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+    _salt() { const arr = new Uint8Array(16); crypto.getRandomValues(arr); return Array.from(arr, b => b.toString(16).padStart(2, '0')).join(''); }
+    
+    // Robust Profile Caching
+    async _getProfile(uid, force = false) {
+        if (!uid) return null;
+        if (!force && this.state.profileCache[uid]) return this.state.profileCache[uid];
+        
+        let p = await this.localDB.get('profiles', uid);
+        
+        if (!this.state.isOfflineMode) {
+            const { data } = await this.db.from('profiles').select('*').eq('id', uid).single();
+            if (data) { 
+                p = data; 
+                await this.localDB.put('profiles', p); 
+            }
+        }
+        
+        if (p) this.state.profileCache[uid] = p;
+        return p;
+    }
+
+    // Correct DM Resolution
+    async _resolveRoomDisplay(room) {
+        if (!room) return { name: "Chat", avatar: null };
+        
+        // Group chat
+        if (!room.is_direct) return { name: room.name, avatar: room.avatar_url };
+        
+        // Direct Message
+        const myId = this.state.user?.id;
+        const otherId = room.allowed_users?.find(id => id !== myId);
+        
+        if (!otherId) return { name: "Direct", avatar: null };
+        
+        const p = await this._getProfile(otherId);
+        return { 
+            name: p?.full_name || "Onbekende Gebruiker", 
+            avatar: p?.avatar_url 
+        };
+    }
+
+    async _openChat(roomId, pass, data) {
+        this.state.currentRoomId = roomId;
+        this.state.currentRoomData = data;
+        
+        const keySource = pass ? (pass + roomId) : roomId;
+        await this._worker('derive', { pass: keySource, salt: data.salt, id: roomId });
+
+        let msgs = [];
+        if (!this.state.isOfflineMode) {
+            const { data: rawMsgs } = await this.db.from('messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50);
+            if (rawMsgs) {
+                rawMsgs.reverse();
+                const decrypted = await Promise.all(rawMsgs.map(m => this._worker('decrypt', { text: m.content, id: roomId }).then(r => ({ ...m, ...r, room_id: roomId })).catch(() => null)));
+                msgs = decrypted.filter(Boolean);
+                await this.localDB.putAll('messages', msgs);
+            }
+        } else {
+            msgs = await this.localDB.getRoomMessages(roomId);
+        }
+
+        const display = await this._resolveRoomDisplay(data);
+        this._dispatch('room_entered', { room: data, display, messages: msgs, isOffline: this.state.isOfflineMode });
+
+        if (!this.state.isOfflineMode) {
+            this._subscribeRoom(roomId);
+        }
+    }
+
+    async _subscribeRoom(roomId) {
+        if (this.state.chatChannel) this.state.chatChannel.unsubscribe();
+        
+        this.state.chatChannel = this.db.channel(`room_${roomId}`);
+        this.state.chatChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, async (p) => {
+            const m = p.new;
+            const res = await this._worker('decrypt', { text: m.content, id: roomId });
+            const msgObj = { ...m, ...res, room_id: roomId };
+            await this.localDB.put('messages', msgObj);
+            this._dispatch('message_received', { message: msgObj });
+        }).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, async (p) => {
+            const m = p.new;
+            const res = await this._worker('decrypt', { text: m.content, id: roomId });
+            const msgObj = { ...m, ...res, deleted: m.content === '/', room_id: roomId };
+            await this.localDB.put('messages', msgObj);
+            this._dispatch('message_updated', { message: msgObj });
+        }).subscribe();
+        
+        if (this.state.presenceChannel) this.state.presenceChannel.unsubscribe();
+        this.state.presenceChannel = this.db.channel(`pres_${roomId}`, { config: { presence: { key: this.state.user.id } } });
+        this.state.presenceChannel.on('presence', { event: 'sync' }, () => {
+            const state = this.state.presenceChannel.presenceState();
+            const ids = new Set(Object.values(state).flat().map(p => p.user_id));
+            this._dispatch('room_presence', { count: ids.size });
+        }).subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') await this.state.presenceChannel.track({ user_id: this.state.user.id });
+        });
+    }
+
+    // --- PUBLIC API ---
+
+    async init() {
+        await this.localDB.init();
+        const email = localStorage.getItem('hrn_auth_email');
+        const pass = localStorage.getItem('hrn_auth_pass');
+        
+        if (navigator.onLine) {
+            this._dispatch('connection_status', { status: 'connecting' });
+            if (email && pass) {
+                const success = await this.login(email, pass, true);
+                if (success) return;
+            }
+        } else {
+            this.state.isOfflineMode = true;
+            this._dispatch('connection_status', { status: 'offline' });
+            if (email && pass) {
+                const known = await this.localDB.get('known_users', email);
+                if (known && known.pass_hash === await this._sha256(pass + email)) {
+                    this.state.user = { id: known.userId, email: known.email, user_metadata: known.metadata };
+                    this._dispatch('auth_state_changed', { user: this.state.user, state: 'offline_mode' });
+                    this.loadRooms(); // Load rooms in offline mode too
+                    return;
+                }
+            }
+        }
+        this._dispatch('auth_state_changed', { user: null, state: 'logged_out' });
+    }
+
+    async login(email, pass, silent = false) {
+        if (!silent) this._dispatch('loading', { active: true, text: "Inloggen..." });
+        try {
+            const { error } = await this.db.auth.signInWithPassword({ email, password: pass });
+            if (error) throw error;
+            const { data: { user } } = await this.db.auth.getUser();
+            this.state.user = user;
+            
+            const hash = await this._sha256(pass + email);
+            await this.localDB.put('known_users', { id: email, pass_hash: hash, userId: user.id, email: user.email, metadata: user.user_metadata });
+            
+            localStorage.setItem('hrn_auth_email', email);
+            localStorage.setItem('hrn_auth_pass', pass);
+            
+            this.state.isOfflineMode = false;
+            this._dispatch('auth_state_changed', { user, state: 'logged_in' });
+            this.loadRooms();
+            return true;
+        } catch (e) {
+            if (!silent) this._dispatch('notification', { message: "Login gefaald", type: 'error' });
+            return false;
+        } finally { if (!silent) this._dispatch('loading', { active: false }); }
+    }
+
+    async register(data) {
+        this._dispatch('loading', { active: true, text: "Code versturen..." });
+        try {
+            const r = await fetch(this.CONFIG.mailApi, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", email: data.email }) });
+            const j = await r.json();
+            if (j.message === "Code sent") {
+                sessionStorage.setItem('temp_reg', JSON.stringify(data));
+                this._dispatch('registration_code_sent', { email: data.email });
+            } else throw new Error("Mail error");
+        } catch (e) { this._dispatch('notification', { message: "Kon code niet versturen", type: 'error' }); }
+        this._dispatch('loading', { active: false });
+    }
+
+    async verifyCode(code) {
+        const temp = JSON.parse(sessionStorage.getItem('temp_reg'));
+        if (!temp) return;
+        this._dispatch('loading', { active: true, text: "Verifiëren..." });
+        try {
+            const r = await fetch(this.CONFIG.mailApi, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "verify", email: temp.email, code }) });
+            const j = await r.json();
+            if (j.message === "Verified") {
+                const { error } = await this.db.auth.signUp({ email: temp.email, password: temp.pass, options: { data: { full_name: temp.name, avatar_url: temp.avatar } } });
+                if (error) throw error;
+                this._dispatch('notification', { message: "Account aangemaakt!", type: 'success' });
+                this.login(temp.email, temp.pass);
+            } else throw new Error("Invalid code");
+        } catch (e) { this._dispatch('notification', { message: "Ongeldige code", type: 'error' }); }
+        this._dispatch('loading', { active: false });
+    }
+
+    async logout() {
+        this.state.user = null;
+        this.state.currentRoomId = null;
+        localStorage.clear();
+        await this.db.auth.signOut();
+        if(this.state.chatChannel) this.state.chatChannel.unsubscribe();
+        if(this.state.presenceChannel) this.state.presenceChannel.unsubscribe();
+        this._dispatch('auth_state_changed', { user: null, state: 'logged_out' });
+    }
+
+    async loadRooms() {
+        if (!this.state.user) return;
+        if (this.state.isOfflineMode) {
+            const rooms = await this.localDB.getAll('rooms');
+            const resolved = await Promise.all(rooms.map(async r => ({ ...r, display: await this._resolveRoomDisplay(r) })));
+            this.state.allRooms = resolved;
+            this._dispatch('rooms_updated', { rooms: resolved });
+            return;
+        }
+        const { data } = await this.db.from('rooms').select('*');
+        if (data) {
+            await this.localDB.clear('rooms');
+            await this.localDB.putAll('rooms', data);
+            this.state.allRooms = data;
+            const resolved = await Promise.all(data.map(async r => ({ ...r, display: await this._resolveRoomDisplay(r) })));
+            this._dispatch('rooms_updated', { rooms: resolved });
+        }
+    }
+
+    async joinRoom(id, pass = null) {
+        this._dispatch('loading', { active: true, text: "Toegang..." });
+        let room = await this.localDB.get('rooms', id);
+
+        if (!this.state.isOfflineMode) {
+            const { data } = await this.db.from('rooms').select('*').eq('id', id).single();
+            if (data) room = data;
+        }
+
+        if (!room) { this._dispatch('notification', { message: "Room niet gevonden", type: 'error' }); this._dispatch('loading', { active: false }); return; }
+        await this.localDB.put('rooms', room);
+
+        if (room.has_password && !pass) {
+            this._dispatch('room_password_required', { room });
+            this._dispatch('loading', { active: false });
+            return;
+        }
+
+        if (room.has_password && pass) {
+            const hash = await this._sha256(pass + room.salt);
+            const { data: ok } = await this.db.rpc('verify_room_password', { p_room_id: id, p_hash: hash });
+            if (!ok) { this._dispatch('notification', { message: "Fout wachtwoord", type: 'error' }); this._dispatch('loading', { active: false }); return; }
+        }
+
+        await this._openChat(id, pass, room);
+        this._dispatch('loading', { active: false });
+    }
+
+    async sendMessage(text) {
+        if (!text || !this.state.currentRoomId || this.state.isOfflineMode) return;
+        const encrypted = await this._worker('encrypt', { id: this.state.currentRoomId, text: new Date().toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) + "|" + text });
+        await this.db.from('messages').insert({ room_id: this.state.currentRoomId, user_id: this.state.user.id, user_name: this.state.user.user_metadata.full_name, content: encrypted });
+    }
+
+    async editMessage(id, newText) {
+        const encrypted = await this._worker('encrypt', { id: this.state.currentRoomId, text: new Date().toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) + "|" + newText });
+        await this.db.from('messages').update({ content: encrypted }).eq('id', id);
+    }
+    
+    async deleteMessage(id) {
+        await this.db.from('messages').update({ content: '/' }).eq('id', id);
+    }
+
+    // IMPROVED CREATE ROOM
+    async createRoom(details) {
+        const { type, targetUser, password, visible } = details;
+        
+        if (type === 'direct') {
+            // 1. Validate User ID
+            if (!targetUser) {
+                this._dispatch('notification', { message: "Vul een User ID in.", type: 'error' });
+                return;
+            }
+            if (targetUser === this.state.user.id) {
+                this._dispatch('notification', { message: "Je kunt geen chat met jezelf starten.", type: 'error' });
+                return;
+            }
+
+            // 2. Check for Duplicate
+            const existing = this.state.allRooms.find(r => 
+                r.is_direct && 
+                r.allowed_users && 
+                r.allowed_users.includes(this.state.user.id) && 
+                r.allowed_users.includes(targetUser)
+            );
+
+            if (existing) {
+                this._dispatch('notification', { message: "Chat bestaat al!", type: 'success' });
+                this.joinRoom(existing.id); // Open existing room
+                return;
+            }
+
+            // 3. Verify User Exists
+            this._dispatch('loading', { active: true, text: "Gebruiker zoeken..." });
+            const profile = await this._getProfile(targetUser);
+            if (!profile) {
+                this._dispatch('loading', { active: false });
+                this._dispatch('notification', { message: "Gebruiker niet gevonden.", type: 'error' });
+                return;
+            }
+            // Cache profile immediately so UI updates instantly
+            this.state.profileCache[targetUser] = profile;
+
+            // 4. Create Room
+            const salt = this._salt();
+            const payload = {
+                name: "DM",
+                is_direct: true,
+                allowed_users: [this.state.user.id, targetUser],
+                has_password: false, // DMs usually don't have passwords
+                salt: salt,
+                is_visible: true,
+                created_by: this.state.user.id
+            };
+
+            const { data, error } = await this.db.from('rooms').insert(payload).select().single();
+            if (error) { 
+                this._dispatch('notification', { message: "Fout bij aanmaken", type: 'error' }); 
+                this._dispatch('loading', { active: false });
+                return; 
+            }
+            
+            await this.localDB.put('rooms', data);
+            this._dispatch('notification', { message: "Chat gestart!", type: 'success' });
+            await this.loadRooms();
+            this.joinRoom(data.id);
+            this._dispatch('loading', { active: false });
+
+        } else {
+            // Group Logic
+            const { name } = details;
+            if(!name) {
+                this._dispatch('notification', { message: "Naam is verplicht.", type: 'error' });
+                return;
+            }
+            const salt = this._salt();
+            const payload = {
+                name: name,
+                is_direct: false,
+                allowed_users: ['*'],
+                has_password: !!password,
+                salt: salt,
+                is_visible: visible,
+                created_by: this.state.user.id
+            };
+            const { data, error } = await this.db.from('rooms').insert(payload).select().single();
+            if (error) { this._dispatch('notification', { message: "Fout bij aanmaken", type: 'error' }); return; }
+            
+            if (password) {
+                const hash = await this._sha256(password + salt);
+                await this.db.rpc('set_room_password', { p_room_id: data.id, p_hash: hash });
+            }
+            
+            this._dispatch('notification', { message: "Room aangemaakt!", type: 'success' });
+            await this.loadRooms();
+        }
+    }
+
+    async saveRoomSettings(roomId, settings) {
+        const { name, isVisible, newPassword, removePassword, allowedUserIds } = settings;
+        const updates = { name, is_visible: isVisible, allowed_users: allowedUserIds };
+        
+        if (removePassword) updates.has_password = false;
+        if (newPassword) updates.has_password = true;
+
+        await this.db.from('rooms').update(updates).eq('id', roomId);
+
+        if (removePassword) await this.db.rpc('set_room_password', { p_room_id: roomId, p_hash: null });
+        else if (newPassword) {
+            const salt = this.state.currentRoomData.salt;
+            const hash = await this._sha256(newPassword + salt);
+            await this.db.rpc('set_room_password', { p_room_id: roomId, p_hash: hash });
+        }
+        
+        this.state.currentRoomData = { ...this.state.currentRoomData, ...updates };
+        const display = await this._resolveRoomDisplay(this.state.currentRoomData);
+        this._dispatch('room_updated', { room: this.state.currentRoomData, display });
+        this.loadRooms();
+        this._dispatch('notification', { message: "Opgeslagen!", type: 'success' });
+    }
+
+    async deleteRoom(roomId) {
+        await this.db.from('rooms').delete().eq('id', roomId);
+        this._dispatch('room_left');
+        this.loadRooms();
+    }
+
+    async getProfile(id) { return this._getProfile(id); }
+    
+    leaveRoom() {
+        if(this.state.chatChannel) this.state.chatChannel.unsubscribe();
+        if(this.state.presenceChannel) this.state.presenceChannel.unsubscribe();
+        this.state.currentRoomId = null;
+        this._dispatch('room_left');
+    }
+}
+
+
+// ==========================================
+// FRONTEND CONTROLLER
+// ==========================================
+const app = new HRNChat();
+const $ = id => document.getElementById(id);
+const esc = t => t ? t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
+
+const UI = {
+    state: { ctxTarget: null },
+    el: {
+        auth: $('auth-screen'), login: $('auth-login'), reg: $('auth-register'), verify: $('auth-verify'),
+        sidebar: $('sidebar'), main: $('main-view'), chatUi: $('chat-ui'), empty: $('empty-ui'),
+        roomList: $('room-list'), msgs: $('msgs-area'), input: $('msg-input'),
+        modal: $('modal-content'), overlay: $('modal-overlay'), ctx: $('ctx-menu'),
+        toast: $('toast-container')
+    }
+};
+
+const toast = (msg, type='success') => {
+    const t = document.createElement('div'); t.className = `toast ${type}`; t.innerText = msg;
+    UI.el.toast.appendChild(t); setTimeout(() => t.remove(), 3000);
+};
+const openModal = (html) => { UI.el.modal.innerHTML = html; UI.el.overlay.classList.add('open'); };
+const closeModal = () => UI.el.overlay.classList.remove('open');
+const hide = e => e.classList.add('hidden'); const show = e => e.classList.remove('hidden');
+
+const renderRooms = (rooms) => {
+    UI.el.roomList.innerHTML = rooms.map(r => `
+        <div class="room-item ${r.id === app.state.currentRoomId ? 'active' : ''}" data-id="${r.id}">
+            <div class="avatar">${r.display?.avatar ? `<img src="${r.display.avatar}"/>` : (r.display?.name||'G').charAt(0)}</div>
+            <div style="flex:1; overflow:hidden">
+                <div class="room-name">${esc(r.display?.name || r.name)}</div>
+                <div class="room-meta">${r.is_direct ? 'Direct' : 'Groep'}</div>
+            </div>
+        </div>
+    `).join('');
+};
+
+const renderMsgs = (msgs, roomId) => {
+    const isDirect = app.state.currentRoomData?.is_direct;
+    UI.el.msgs.innerHTML = msgs.map(m => `
+        <div class="msg-row ${m.user_id === app.state.user.id ? 'me' : ''}" data-id="${m.id}" data-uid="${m.user_id}" data-txt="${esc(m.text||'')}">
+            <div class="msg-bubble">
+                ${!isDirect && m.user_id !== app.state.user.id ? `<span class="msg-head">${esc(m.user_name)}</span>` : ''}
+                ${m.deleted ? '<i style="color:var(--text-dim)">Verwijderd</i>' : `<span class="msg-txt">${esc(m.text)}</span>`}
+                <span class="msg-time">${m.time || ''}</span>
+            </div>
+        </div>
+    `).join('');
+    UI.el.msgs.scrollTop = UI.el.msgs.scrollHeight;
+};
+
+// --- Events ---
+ $('btn-login').onclick = () => app.login($('login-email').value, $('login-pass').value);
+ $('btn-reg').onclick = () => app.register({ name: $('reg-name').value, email: $('reg-email').value, pass: $('reg-pass').value, avatar: $('reg-avatar').value });
+ $('btn-verify').onclick = () => app.verifyCode($('verify-code').value);
+ $('show-reg').onclick = () => { hide(UI.el.login); show(UI.el.reg); };
+ $('show-login').onclick = () => { hide(UI.el.reg); show(UI.el.login); };
+
+ $('btn-logout').onclick = () => app.logout();
+ $('btn-profile').onclick = async () => {
+    const u = app.state.user;
+    openModal(`
+        <div class="modal-header"><h3>Mijn Profiel</h3></div>
+        <div class="modal-body">
+            <div style="text-align:center; margin-bottom:20px">
+                <div class="avatar" style="width:80px; height:80px; font-size:24px; margin:0 auto 10px">${u.user_metadata?.avatar_url ? `<img src="${u.user_metadata.avatar_url}"/>` : (u.user_metadata?.full_name||'U').charAt(0)}</div>
+                <h2>${esc(u.user_metadata?.full_name)}</h2>
+            </div>
+            <div class="form-group"><label class="form-label">User ID</label><input class="form-input" readonly value="${u.id}"></div>
+            <div class="form-group"><label class="form-label">Email</label><input class="form-input" readonly value="${u.email}"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary" onclick="document.getElementById('modal-overlay').classList.remove('open')">Sluiten</button></div>
+    `);
+};
+
+// CREATE ROOM MODAL
+ $('btn-create-room').onclick = () => {
+    openModal(`
+        <div class="modal-header"><h3>Nieuwe Chat</h3></div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Type</label>
+                <select id="cr-type" class="form-input" onchange="document.getElementById('cr-group-fields').style.display=this.value==='group'?'block':'none'; document.getElementById('cr-dm-fields').style.display=this.value==='direct'?'block':'none';">
+                    <option value="direct">Direct Bericht (DM)</option>
+                    <option value="group">Groep</option>
+                </select>
+            </div>
+            
+            <div id="cr-dm-fields">
+                <div class="form-group">
+                    <label class="form-label">User ID van ontvanger</label>
+                    <input type="text" id="cr-target" class="form-input" placeholder="Plak hier het ID...">
+                </div>
+            </div>
+
+            <div id="cr-group-fields" style="display:none;">
+                <div class="form-group"><label class="form-label">Naam</label><input type="text" id="cr-name" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Wachtwoord (Optioneel)</label><input type="password" id="cr-pass" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Zichtbaar <label class="switch" style="float:right"><input type="checkbox" id="cr-vis" checked><span class="slider"></span></label></label></div>
+            </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-primary" id="cr-go">Start Chat</button></div>
+    `);
+    $('cr-go').onclick = async () => {
+        const type = $('cr-type').value;
+        await app.createRoom({
+            type, 
+            name: $('cr-name')?.value, 
+            password: $('cr-pass')?.value, 
+            visible: $('cr-vis')?.checked, 
+            targetUser: $('cr-target')?.value
+        });
+        closeModal();
+    };
+};
+
+UI.el.roomList.onclick = e => { const item = e.target.closest('.room-item'); if(item) app.joinRoom(item.dataset.id); };
+ $('btn-send').onclick = () => { app.sendMessage(UI.el.input.value); UI.el.input.value = ''; };
+UI.el.input.onkeydown = e => { if(e.key === 'Enter' && !e.shiftKey) $('btn-send').click(); };
+
+// Room Settings
+ $('btn-room-settings').onclick = $('btn-info').onclick = async () => {
+    const r = app.state.currentRoomData; if(!r) return;
+    const isOwner = r.created_by === app.state.user.id;
+    const users = await Promise.all((r.allowed_users || []).filter(id => id !== '*').map(id => app.getProfile(id)));
+    
+    openModal(`
+        <div class="modal-header"><h3>Instellingen</h3></div>
+        <div class="modal-body">
+            <div class="form-group"><label class="form-label">Room ID</label><input class="form-input" readonly value="${r.id}"></div>
+            ${isOwner && !r.is_direct ? `
+            <div class="form-group"><label class="form-label">Naam</label><input class="form-input" id="set-name" value="${esc(r.name)}"></div>
+            <div class="form-group"><label class="form-label">Zichtbaarheid <label class="switch" style="float:right"><input type="checkbox" id="set-vis" ${r.is_visible ? 'checked' : ''}><span class="slider"></span></label></label></div>
+            <div class="form-group"><label class="form-label">Nieuw Wachtwoord</label><input type="password" id="set-pass" class="form-input" placeholder="Leeg laten indien geen wijziging"></div>
+            ` : `<p style="color:var(--text-muted)">Je bent geen eigenaar of dit is een DM.</p>`}
+        </div>
+        <div class="modal-footer" style="justify-content:space-between">
+            ${isOwner && !r.is_direct ? `<button class="btn btn-danger" id="btn-del-room">Verwijder Room</button>` : '<div/>'}
+            <button class="btn btn-secondary" onclick="document.getElementById('modal-overlay').classList.remove('open')">Sluiten</button>
+        </div>
+    `);
+
+    if(isOwner && !r.is_direct) {
+        $('btn-del-room').onclick = async () => {
+            if(confirm("Zeker weten?")) { await app.deleteRoom(r.id); closeModal(); }
+        };
+    }
+};
+
+// Context Menu
+UI.el.msgs.oncontextmenu = e => {
+    const row = e.target.closest('.msg-row'); if(!row) return;
+    e.preventDefault();
+    UI.state.ctxTarget = { id: row.dataset.id, uid: row.dataset.uid, txt: row.dataset.txt };
+    const isOwner = UI.state.ctxTarget.uid === app.state.user.id;
+    
+    UI.el.ctx.innerHTML = `
+        ${isOwner ? `<div class="ctx-item" data-act="edit">Bewerken</div><div class="ctx-item danger" data-act="del">Verwijderen</div>` : ''}
+        <div class="ctx-item" data-act="copy">Kopieer</div>
+    `;
+    UI.el.ctx.style.display = 'block';
+    UI.el.ctx.style.left = `${e.pageX}px`;
+    UI.el.ctx.style.top = `${e.pageY}px`;
+    setTimeout(() => document.addEventListener('click', () => UI.el.ctx.style.display = 'none', { once: true }), 10);
+};
+
+UI.el.ctx.onclick = e => {
+    const act = e.target.dataset.act; if(!act) return;
+    if(act === 'copy') navigator.clipboard.writeText(UI.state.ctxTarget.txt);
+    if(act === 'del') app.deleteMessage(UI.state.ctxTarget.id);
+    if(act === 'edit') {
+        openModal(`
+            <div class="modal-header"><h3>Bewerken</h3></div>
+            <div class="modal-body"><textarea id="edit-txt" class="form-input" style="height:100px">${UI.state.ctxTarget.txt}</textarea></div>
+            <div class="modal-footer"><button class="btn btn-primary" id="edit-go">Opslaan</button></div>
+        `);
+        $('edit-go').onclick = () => { app.editMessage(UI.state.ctxTarget.id, $('edit-txt').value); closeModal(); };
+    }
+};
+
+// --- Global Handlers ---
+app.addEventListener('notification', e => toast(e.detail.message, e.detail.type || 'success'));
+app.addEventListener('loading', e => document.body.style.cursor = e.detail.active ? 'wait' : 'default');
+
+app.addEventListener('auth_state_changed', e => {
+    const { user, state } = e.detail;
+    if (state === 'logged_in' || state === 'offline_mode') {
+        hide(UI.el.auth); show(UI.el.sidebar); show(UI.el.empty); hide(UI.el.chatUi);
+        $('sb-name').innerText = user.user_metadata?.full_name;
+        $('sb-avatar').innerHTML = user.user_metadata?.avatar_url ? `<img src="${user.user_metadata.avatar_url}"/>` : (user.user_metadata?.full_name||'U').charAt(0);
+        $('sb-status').innerText = state === 'logged_in' ? 'Online' : 'Offline';
+        $('sb-dot').className = `status-dot ${state === 'logged_in' ? 'online' : 'offline'}`;
+    } else {
+        show(UI.el.auth); hide(UI.el.sidebar);
+    }
+});
+
+app.addEventListener('rooms_updated', e => renderRooms(e.detail.rooms));
+
+app.addEventListener('room_password_required', e => {
+    openModal(`
+        <div class="modal-header"><h3>Wachtwoord Vereist</h3></div>
+        <div class="modal-body"><input type="password" id="gate-pass" class="form-input" placeholder="Wachtwoord"></div>
+        <div class="modal-footer"><button class="btn btn-primary" id="gate-go">Toegang</button></div>
+    `);
+    $('gate-go').onclick = () => { app.joinRoom(e.detail.room.id, $('gate-pass').value); closeModal(); };
+});
+
+app.addEventListener('room_entered', e => {
+    hide(UI.el.empty); show(UI.el.chatUi);
+    $('chat-title-text').innerText = e.detail.display.name;
+    $('chat-avatar').innerHTML = e.detail.display.avatar ? `<img src="${e.detail.display.avatar}"/>` : e.detail.display.name.charAt(0);
+    renderMsgs(e.detail.messages, e.detail.room.id);
+});
+
+app.addEventListener('room_updated', e => {
+    $('chat-title-text').innerText = e.detail.display.name;
+    $('chat-avatar').innerHTML = e.detail.display.avatar ? `<img src="${e.detail.display.avatar}"/>` : e.detail.display.name.charAt(0);
+});
+
+app.addEventListener('room_left', () => { show(UI.el.empty); hide(UI.el.chatUi); });
+app.addEventListener('message_received', e => {
+    const m = e.detail.message;
+    const isDirect = app.state.currentRoomData?.is_direct;
+    const html = `<div class="msg-row ${m.user_id === app.state.user.id ? 'me' : ''}" data-id="${m.id}" data-uid="${m.user_id}" data-txt="${esc(m.text||'')}"><div class="msg-bubble">${!isDirect && m.user_id !== app.state.user.id ? `<span class="msg-head">${esc(m.user_name)}</span>` : ''}<span class="msg-txt">${esc(m.text)}</span><span class="msg-time">${m.time||''}</span></div></div>`;
+    UI.el.msgs.insertAdjacentHTML('beforeend', html);
+    UI.el.msgs.scrollTop = UI.el.msgs.scrollHeight;
+});
+
+app.addEventListener('message_updated', e => {
+    const row = UI.el.msgs.querySelector(`[data-id="${e.detail.message.id}"]`);
+    if(row) {
+        const txt = row.querySelector('.msg-txt');
+        if(txt) txt.innerText = e.detail.message.text || "Verwijderd";
+    }
+});
+
+app.addEventListener('room_presence', e => {
+    $('chat-meta').innerText = `${e.detail.count} online`;
+});
+
+app.addEventListener('connection_status', e => {
+    $('sb-status').innerText = e.detail.status === 'connected' ? 'Online' : (e.detail.status === 'connecting' ? 'Verbinden...' : 'Offline');
+    $('sb-dot').className = `status-dot ${e.detail.status === 'connected' ? 'online' : 'offline'}`;
+});
+
+app.init();
+
+</script>
+</body>
+</html>
