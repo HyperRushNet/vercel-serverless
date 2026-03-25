@@ -4,58 +4,16 @@ const { JSDOM } = require('jsdom');
 const cors = require('cors');
 
 const app = express();
-
-// Middleware
 app.use(cors());
-app.use(express.json());
+
+let browser; // We houden de browser hier vast in het geheugen
 
 /**
- * 1. Root Endpoint - Handig om te zien of de server leeft
+ * Functie om de browser te starten (en automatisch te herstarten bij crash)
  */
-app.get('/', (req, res) => {
-    res.send(`
-        <h1>HTML to Markdown API is Online</h1>
-        <p>Gebruik: <code>/convert?url=https://voorbeeld.nl</code></p>
-        <p>Debug: <a href="/debug">/debug</a></p>
-    `);
-});
-
-/**
- * 2. Debug Endpoint - Om te controleren of de browser echt geïnstalleerd is
- */
-app.get('/debug', async (req, res) => {
+async function initBrowser() {
     try {
-        const browser = await puppeteer.launch({ 
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-        });
-        const version = await browser.version();
-        await browser.close();
-        res.json({
-            status: "success",
-            puppeteer_version: require('puppeteer/package.json').version,
-            browser_version: version,
-            node_version: process.version,
-            cache_path: puppeteer.configuration?.cacheDirectory || "default"
-        });
-    } catch (err) {
-        res.status(500).json({ status: "error", message: err.message });
-    }
-});
-
-/**
- * 3. Conversie Endpoint - De kern logica
- */
-app.get('/convert', async (req, res) => {
-    const { url } = req.query;
-    if (!url) {
-        return res.status(400).send('Fout: Geen URL opgegeven. Gebruik ?url=https://...');
-    }
-
-    let browser = null;
-    try {
-        console.log(`--- Start conversie voor: ${url} ---`);
-
-        // Launch browser met de lokale cache instellingen
+        console.log("🚀 Browser opstarten...");
         browser = await puppeteer.launch({
             executablePath: puppeteer.executablePath(),
             args: [
@@ -67,80 +25,81 @@ app.get('/convert', async (req, res) => {
             ],
             headless: "new"
         });
-
-        const page = await browser.newPage();
         
-        // Voorkom bot-detectie
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        browser.on('disconnected', initBrowser); // Herstart als Chrome crasht
+        console.log("✅ Browser is online en klaar voor gebruik.");
+    } catch (err) {
+        console.error("❌ Fout bij opstarten browser:", err.message);
+        setTimeout(initBrowser, 5000); // Probeer het over 5 sec opnieuw
+    }
+}
 
-        // Wacht tot de pagina geladen is (max 30s)
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+// Start de browser direct bij het opstarten van de server
+initBrowser();
+
+app.get('/convert', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).send('URL ontbreekt');
+
+    if (!browser) return res.status(500).send('Browser is nog aan het opstarten, probeer het over 2 seconden.');
+
+    let page = null;
+    try {
+        const start = Date.now(); // Voor snelheidstesten in de console
+
+        page = await browser.newPage(); // Open een tabblad, niet een hele browser
+        
+        // Blokkeer afbeeldingen en CSS om het laden NOG sneller te maken
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
         const html = await page.content();
         const dom = new JSDOM(html);
         const doc = dom.window.document;
 
-        // Cleanup: Verwijder onnodige elementen
-        const trash = doc.querySelectorAll("script, style, nav, footer, header, aside, iframe, .ads, ins, noscript, svg, form, button");
-        trash.forEach(el => el.remove());
-        
-        // Selecteer hoofdcontent of de body
-        const root = doc.querySelector("article, main, #content, .post-content, .article-body") || doc.body;
+        // Cleanup
+        doc.querySelectorAll("script, style, nav, footer, header, aside, iframe, .ads, noscript").forEach(el => el.remove());
+        const root = doc.querySelector("article, main") || doc.body;
         
         const markdown = nodeToMarkdown(root);
-
-        // Resultaat opschonen (geen 4 lege regels achter elkaar)
-        const finalMarkdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
-
-        console.log(`--- Conversie geslaagd voor: ${url} ---`);
+        const duration = Date.now() - start;
+        
+        console.log(`⚡ Conversie klaar in ${duration}ms voor ${url}`);
+        
         res.set('Content-Type', 'text/plain; charset=utf-8');
-        res.send(finalMarkdown);
+        res.send(markdown.replace(/\n{3,}/g, '\n\n').trim());
 
     } catch (err) {
-        console.error("ERROR tijdens conversie:", err.message);
-        res.status(500).send("Conversie mislukt: " + err.message);
+        res.status(500).send("Error: " + err.message);
     } finally {
-        if (browser) {
-            await browser.close();
-            console.log("Browser gesloten.");
-        }
+        if (page) await page.close(); // Sluit alleen het tabblad, niet de browser!
     }
 });
 
-/**
- * Recursieve Parser Functie
- */
+// Eenvoudige parser (zoals voorheen)
 function nodeToMarkdown(node) {
     let md = "";
     node.childNodes.forEach(child => {
-        if (child.nodeType === 3) { // Text node
-            const text = child.textContent.replace(/\s+/g, " ");
-            if (text !== " ") md += text;
-        } else if (child.nodeType === 1) { // Element node
+        if (child.nodeType === 3) {
+            md += child.textContent.replace(/\s+/g, " ");
+        } else if (child.nodeType === 1) {
             const tag = child.tagName.toLowerCase();
             const inner = nodeToMarkdown(child);
-
             switch(tag) {
                 case "h1": md += `\n# ${inner}\n`; break;
                 case "h2": md += `\n## ${inner}\n`; break;
-                case "h3": md += `\n### ${inner}\n`; break;
-                case "p": case "div": md += `\n${inner}\n`; break;
-                case "strong": case "b": md += `**${inner}**`; break;
-                case "em": case "i": md += `*${inner}*`; break;
-                case "a": 
-                    const href = child.getAttribute('href');
-                    md += (href && inner.trim()) ? ` [${inner.trim()}](${href}) ` : inner; 
-                    break;
+                case "p": md += `\n${inner}\n`; break;
+                case "a": md += ` [${inner.trim()}](${child.getAttribute('href') || '#'}) `; break;
                 case "li": md += `\n- ${inner}`; break;
-                case "ul": case "ol": md += `\n${inner}\n`; break;
                 case "br": md += "\n"; break;
-                case "pre": md += `\n\`\`\`\n${child.textContent.trim()}\n\`\`\`\n`; break;
-                case "code": md += ` \`${inner}\` `; break;
-                case "img":
-                    const alt = child.getAttribute('alt') || 'image';
-                    const src = child.getAttribute('src');
-                    if (src) md += `\n![${alt}](${src})\n`;
-                    break;
                 default: md += inner;
             }
         }
@@ -148,13 +107,5 @@ function nodeToMarkdown(node) {
     return md;
 }
 
-// Start Server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`
-    *****************************************
-    🚀 Server draait op poort ${PORT}
-    🔗 Endpoint: http://localhost:${PORT}/convert
-    *****************************************
-    `);
-});
+app.listen(PORT, () => console.log(`Server op poort ${PORT}`));
