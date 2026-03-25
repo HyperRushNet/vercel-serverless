@@ -1,107 +1,90 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
-const { JSDOM } = require('jsdom');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const TurndownService = require('turndown');
 const cors = require('cors');
 
+puppeteer.use(StealthPlugin());
 const app = express();
 app.use(cors());
 
+// Turndown configureren voor de beste Markdown
+const turndownService = new TurndownService({
+    headingStyle: 'atx',
+    codeBlockStyle: 'fenced',
+    hr: '---'
+});
+
 let browser;
 
+// Browser één keer opstarten en warm houden
 async function initBrowser() {
-    try {
-        browser = await puppeteer.launch({
-            executablePath: puppeteer.executablePath(),
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-            headless: "new"
-        });
-        browser.on('disconnected', initBrowser);
-        console.log("🚀 Browser Ready");
-    } catch (err) {
-        setTimeout(initBrowser, 5000);
-    }
+    browser = await puppeteer.launch({
+        executablePath: require('puppeteer').executablePath(),
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+            '--no-zygote'
+        ],
+        headless: "new"
+    });
+    console.log("🚀 Ultra-Stealth Browser is online");
 }
 initBrowser();
 
 app.get('/convert', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).send('URL missing');
-    if (!browser) return res.status(500).send('Browser starting...');
 
     let page = null;
     try {
         page = await browser.newPage();
         
-        // Versnel laden door onnodige troep te blokkeren
+        // Snelheidsboost: Blokkeer onnodige resources
         await page.setRequestInterception(true);
-        page.on('request', (r) => {
-            if (['image', 'stylesheet', 'font', 'media'].includes(r.resourceType())) r.abort();
-            else r.continue();
-        });
-
-        // Voor Poki moeten we soms even wachten tot de JS klaar is
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: 20000 });
-
-        const html = await page.content();
-        const dom = new JSDOM(html);
-        const doc = dom.window.document;
-
-        // 1. VERWIJDER DIRECTE TROEP
-        const blacklist = "nav, footer, header, aside, script, style, iframe, .ads, #sidebar, .menu, [role='navigation']";
-        doc.querySelectorAll(blacklist).forEach(el => el.remove());
-
-        // 2. SLIM FILTEREN VAN SPELLEN-LIJSTEN (Jouw specifieke vraag)
-        // We zoeken naar containers die te veel links bevatten (zoals die lange lijst spellen)
-        const containers = doc.querySelectorAll('div, ul, section');
-        containers.forEach(container => {
-            const links = container.querySelectorAll('a');
-            const textLength = container.textContent.length;
-            
-            // Als een blok meer dan 5 links heeft en de tekst bijna alleen maar uit link-titels bestaat: weg ermee.
-            if (links.length > 5 && (links.length * 15) > textLength * 0.5) {
-                container.remove();
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
             }
         });
 
-        // 3. PAK DE HOOFDCONTENT
-        // Bij Poki is de beschrijving vaak een specifieke div, anders pakken we de rest
-        const mainContent = doc.querySelector('article, main, .game-description, #description') || doc.body;
-        
-        const markdown = nodeToMarkdown(mainContent);
-        
+        // Gebruikers-simulatie (tegen Cloudflare)
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36');
+
+        // Navigeer snel
+        await page.goto(url, { 
+            waitUntil: 'domcontentloaded', // Sneller dan networkidle
+            timeout: 20000 
+        });
+
+        // Wacht specifiek op content als Cloudflare een challenge geeft
+        await new Promise(r => setTimeout(r, 1000)); 
+
+        const content = await page.evaluate(() => {
+            // Verwijder rommel direct in de browser (sneller dan JSDOM)
+            const drop = "nav, footer, header, aside, script, style, .ads, #cookie-banner, .menu";
+            document.querySelectorAll(drop).forEach(el => el.remove());
+            
+            // Pak de "Main" content of de body
+            const main = document.querySelector('article, main, #content, .post-body, .article-content') || document.body;
+            return main.innerHTML;
+        });
+
+        // Zet HTML om naar perfecte Markdown via Turndown
+        const markdown = turndownService.turndown(content);
+
         res.set('Content-Type', 'text/plain; charset=utf-8');
-        res.send(markdown.replace(/\n{3,}/g, '\n\n').trim());
+        res.send(markdown.trim());
 
     } catch (err) {
-        res.status(500).send(err.message);
+        res.status(500).send("Fout: " + err.message);
     } finally {
         if (page) await page.close();
     }
 });
-
-function nodeToMarkdown(node) {
-    let md = "";
-    node.childNodes.forEach(child => {
-        if (child.nodeType === 3) {
-            const txt = child.textContent.replace(/\s+/g, " ");
-            if (txt.length > 2) md += txt;
-        } else if (child.nodeType === 1) {
-            const tag = child.tagName.toLowerCase();
-            const inner = nodeToMarkdown(child);
-            if (!inner.trim() && tag !== "br") return;
-
-            switch(tag) {
-                case "h1": md += `\n# ${inner}\n`; break;
-                case "h2": md += `\n## ${inner}\n`; break;
-                case "p": md += `\n${inner}\n`; break;
-                case "a": md += ` [${inner.trim()}](${child.getAttribute('href') || '#'}) `; break;
-                case "li": md += `\n- ${inner}`; break;
-                case "br": md += "\n"; break;
-                default: md += inner;
-            }
-        }
-    });
-    return md;
-}
 
 app.listen(process.env.PORT || 3000);
