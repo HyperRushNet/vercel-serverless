@@ -1,8 +1,8 @@
 {
-  "name": "ultimate-html-to-md",
+  "name": "html-to-markdown-api",
   "version": "1.0.0",
   "dependencies": {
-    "@sparticuz/chromium": "123.0.1",
+    "@sparticuz/chromium-min": "123.0.1",
     "jsdom": "24.0.0",
     "puppeteer-core": "22.6.0"
   }
