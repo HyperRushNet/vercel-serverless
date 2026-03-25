@@ -1,7 +1,6 @@
 {
-  "name": "ultimate-html-to-markdown",
+  "name": "ultimate-html-to-md",
   "version": "1.0.0",
-  "main": "api/convert.js",
   "dependencies": {
     "@sparticuz/chromium": "123.0.1",
     "jsdom": "24.0.0",
