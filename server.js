@@ -6,93 +6,90 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 
-let browser; // We houden de browser hier vast in het geheugen
+let browser;
 
-/**
- * Functie om de browser te starten (en automatisch te herstarten bij crash)
- */
 async function initBrowser() {
     try {
-        console.log("🚀 Browser opstarten...");
         browser = await puppeteer.launch({
             executablePath: puppeteer.executablePath(),
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-zygote'
-            ],
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             headless: "new"
         });
-        
-        browser.on('disconnected', initBrowser); // Herstart als Chrome crasht
-        console.log("✅ Browser is online en klaar voor gebruik.");
+        browser.on('disconnected', initBrowser);
+        console.log("🚀 Browser Ready");
     } catch (err) {
-        console.error("❌ Fout bij opstarten browser:", err.message);
-        setTimeout(initBrowser, 5000); // Probeer het over 5 sec opnieuw
+        setTimeout(initBrowser, 5000);
     }
 }
-
-// Start de browser direct bij het opstarten van de server
 initBrowser();
 
 app.get('/convert', async (req, res) => {
     const { url } = req.query;
-    if (!url) return res.status(400).send('URL ontbreekt');
-
-    if (!browser) return res.status(500).send('Browser is nog aan het opstarten, probeer het over 2 seconden.');
+    if (!url) return res.status(400).send('URL missing');
+    if (!browser) return res.status(500).send('Browser starting...');
 
     let page = null;
     try {
-        const start = Date.now(); // Voor snelheidstesten in de console
-
-        page = await browser.newPage(); // Open een tabblad, niet een hele browser
+        page = await browser.newPage();
         
-        // Blokkeer afbeeldingen en CSS om het laden NOG sneller te maken
+        // Versnel laden door onnodige troep te blokkeren
         await page.setRequestInterception(true);
-        page.on('request', (req) => {
-            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
-                req.abort();
-            } else {
-                req.continue();
-            }
+        page.on('request', (r) => {
+            if (['image', 'stylesheet', 'font', 'media'].includes(r.resourceType())) r.abort();
+            else r.continue();
         });
 
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        // Voor Poki moeten we soms even wachten tot de JS klaar is
+        await page.goto(url, { waitUntil: 'networkidle0', timeout: 20000 });
 
         const html = await page.content();
         const dom = new JSDOM(html);
         const doc = dom.window.document;
 
-        // Cleanup
-        doc.querySelectorAll("script, style, nav, footer, header, aside, iframe, .ads, noscript").forEach(el => el.remove());
-        const root = doc.querySelector("article, main") || doc.body;
+        // 1. VERWIJDER DIRECTE TROEP
+        const blacklist = "nav, footer, header, aside, script, style, iframe, .ads, #sidebar, .menu, [role='navigation']";
+        doc.querySelectorAll(blacklist).forEach(el => el.remove());
+
+        // 2. SLIM FILTEREN VAN SPELLEN-LIJSTEN (Jouw specifieke vraag)
+        // We zoeken naar containers die te veel links bevatten (zoals die lange lijst spellen)
+        const containers = doc.querySelectorAll('div, ul, section');
+        containers.forEach(container => {
+            const links = container.querySelectorAll('a');
+            const textLength = container.textContent.length;
+            
+            // Als een blok meer dan 5 links heeft en de tekst bijna alleen maar uit link-titels bestaat: weg ermee.
+            if (links.length > 5 && (links.length * 15) > textLength * 0.5) {
+                container.remove();
+            }
+        });
+
+        // 3. PAK DE HOOFDCONTENT
+        // Bij Poki is de beschrijving vaak een specifieke div, anders pakken we de rest
+        const mainContent = doc.querySelector('article, main, .game-description, #description') || doc.body;
         
-        const markdown = nodeToMarkdown(root);
-        const duration = Date.now() - start;
-        
-        console.log(`⚡ Conversie klaar in ${duration}ms voor ${url}`);
+        const markdown = nodeToMarkdown(mainContent);
         
         res.set('Content-Type', 'text/plain; charset=utf-8');
         res.send(markdown.replace(/\n{3,}/g, '\n\n').trim());
 
     } catch (err) {
-        res.status(500).send("Error: " + err.message);
+        res.status(500).send(err.message);
     } finally {
-        if (page) await page.close(); // Sluit alleen het tabblad, niet de browser!
+        if (page) await page.close();
     }
 });
 
-// Eenvoudige parser (zoals voorheen)
 function nodeToMarkdown(node) {
     let md = "";
     node.childNodes.forEach(child => {
         if (child.nodeType === 3) {
-            md += child.textContent.replace(/\s+/g, " ");
+            const txt = child.textContent.replace(/\s+/g, " ");
+            if (txt.length > 2) md += txt;
         } else if (child.nodeType === 1) {
             const tag = child.tagName.toLowerCase();
             const inner = nodeToMarkdown(child);
+            if (!inner.trim() && tag !== "br") return;
+
             switch(tag) {
                 case "h1": md += `\n# ${inner}\n`; break;
                 case "h2": md += `\n## ${inner}\n`; break;
@@ -107,5 +104,4 @@ function nodeToMarkdown(node) {
     return md;
 }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server op poort ${PORT}`));
+app.listen(process.env.PORT || 3000);
