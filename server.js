@@ -8,77 +8,98 @@ puppeteer.use(StealthPlugin());
 const app = express();
 app.use(cors());
 
-// Turndown configureren voor de beste Markdown
+// --- CONFIG ---
+const DEFAULT_TTL = 60 * 60 * 1000; // Standaard 1 uur
+const cache = new Map();
+
 const turndownService = new TurndownService({
     headingStyle: 'atx',
-    codeBlockStyle: 'fenced',
-    hr: '---'
+    codeBlockStyle: 'fenced'
 });
 
 let browser;
+let isInitializing = false;
 
-// Browser één keer opstarten en warm houden
 async function initBrowser() {
-    browser = await puppeteer.launch({
-        executablePath: require('puppeteer').executablePath(),
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-blink-features=AutomationControlled',
-            '--no-zygote'
-        ],
-        headless: "new"
-    });
-    console.log("🚀 Ultra-Stealth Browser is online");
+    if (isInitializing || (browser && browser.connected)) return;
+    isInitializing = true;
+    try {
+        browser = await puppeteer.launch({
+            executablePath: require('puppeteer').executablePath(),
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
+            headless: "new"
+        });
+        browser.on('disconnected', initBrowser);
+        console.log("✅ Browser Ready");
+    } catch (err) {
+        isInitializing = false;
+        setTimeout(initBrowser, 3000);
+    }
 }
 initBrowser();
 
 app.get('/convert', async (req, res) => {
-    const { url } = req.query;
+    const { url, nocache, ttl } = req.query; // Pak de parameters uit de URL
     if (!url) return res.status(400).send('URL missing');
+
+    const useCache = nocache !== 'true'; // Als ?nocache=true, dan negeren we de cache
+    const customTTL = ttl ? parseInt(ttl) * 1000 : DEFAULT_TTL;
+
+    // 1. CACHE CHECK (Alleen als nocache niet waar is)
+    if (useCache && cache.has(url)) {
+        const cachedData = cache.get(url);
+        if (Date.now() - cachedData.timestamp < cachedData.ttl) {
+            console.log(`🎯 Cache Hit: ${url}`);
+            res.set('X-Cache', 'HIT');
+            return res.status(200).type('text/plain').send(cachedData.markdown);
+        }
+        cache.delete(url);
+    }
+
+    if (!browser) return res.status(503).send('Browser starting, try again...');
 
     let page = null;
     try {
+        console.log(`🚀 Fetching: ${url} (Cache: ${useCache})`);
         page = await browser.newPage();
         
-        // Snelheidsboost: Blokkeer onnodige resources
+        // Snelheid: blokkeer onnodige meuk
         await page.setRequestInterception(true);
-        page.on('request', (req) => {
-            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
-                req.abort();
-            } else {
-                req.continue();
-            }
+        page.on('request', (r) => {
+            if (['image', 'stylesheet', 'font', 'media', 'other'].includes(r.resourceType())) r.abort();
+            else r.continue();
         });
 
-        // Gebruikers-simulatie (tegen Cloudflare)
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36');
 
-        // Navigeer snel
-        await page.goto(url, { 
-            waitUntil: 'domcontentloaded', // Sneller dan networkidle
-            timeout: 20000 
-        });
+        // Ga naar de site (geen timeout limiet)
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
+        
+        // Wacht heel even voor eventuele Cloudflare JS/Redirects
+        await new Promise(r => setTimeout(r, 600));
 
-        // Wacht specifiek op content als Cloudflare een challenge geeft
-        await new Promise(r => setTimeout(r, 1000)); 
-
-        const content = await page.evaluate(() => {
-            // Verwijder rommel direct in de browser (sneller dan JSDOM)
-            const drop = "nav, footer, header, aside, script, style, .ads, #cookie-banner, .menu";
+        const data = await page.evaluate(() => {
+            const drop = "nav, footer, header, aside, script, style, .ads, #cookie-banner, .menu, .sidebar";
             document.querySelectorAll(drop).forEach(el => el.remove());
-            
-            // Pak de "Main" content of de body
-            const main = document.querySelector('article, main, #content, .post-body, .article-content') || document.body;
-            return main.innerHTML;
+            const main = document.querySelector('article, main, #content, .mw-parser-output, .article-body') || document.body;
+            return { html: main.innerHTML, title: document.title };
         });
 
-        // Zet HTML om naar perfecte Markdown via Turndown
-        const markdown = turndownService.turndown(content);
+        const markdown = `# ${data.title}\n\n${turndownService.turndown(data.html)}`.trim();
 
-        res.set('Content-Type', 'text/plain; charset=utf-8');
-        res.send(markdown.trim());
+        // 2. OPSLAAN IN CACHE (Als we cache mogen gebruiken)
+        if (useCache) {
+            cache.set(url, {
+                markdown,
+                timestamp: Date.now(),
+                ttl: customTTL
+            });
+            // Cache cleanup (max 100 items)
+            if (cache.size > 100) cache.delete(cache.keys().next().value);
+        }
+
+        res.set('X-Cache', 'MISS');
+        res.status(200).type('text/plain').send(markdown);
 
     } catch (err) {
         res.status(500).send("Fout: " + err.message);
