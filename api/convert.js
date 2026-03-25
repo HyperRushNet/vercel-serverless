@@ -3,7 +3,6 @@ const puppeteer = require('puppeteer-core');
 const { JSDOM } = require('jsdom');
 
 export default async function handler(req, res) {
-  // 1. CORS Headers instellen
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
