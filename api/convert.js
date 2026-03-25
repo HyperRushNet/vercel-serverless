@@ -1,4 +1,4 @@
-const chromium = require('@sparticuz/chromium');
+const chromium = require('@sparticuz/chromium-min');
 const puppeteer = require('puppeteer-core');
 const { JSDOM } = require('jsdom');
 
@@ -13,49 +13,36 @@ export default async function handler(req, res) {
     let browser = null;
 
     try {
-        // ESSENTIEEL: Schakel graphics uit om systeem-libs te omzeilen
-        chromium.setGraphicsMode = false;
+        // Dit downloadt de ontbrekende libraries (libnss3 etc) naar de /tmp map van Vercel
+        const executablePath = await chromium.executablePath(
+            'https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'
+        );
 
         browser = await puppeteer.launch({
-            args: [
-                ...chromium.args,
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-zygote',
-                '--single-process',
-            ],
+            args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
+            executablePath: executablePath,
             headless: chromium.headless,
-            ignoreHTTPSErrors: true,
         });
 
         const page = await browser.newPage();
-        
-        // Timeout naar 9s (Vercel Hobby limiet is 10s)
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: 9000 });
+        await page.goto(url, { waitUntil: 'networkidle0', timeout: 15000 });
         
         const html = await page.content();
         const dom = new JSDOM(html);
         const doc = dom.window.document;
 
         // Cleanup
-        doc.querySelectorAll("script, style, nav, footer, header, aside, iframe, noscript").forEach(el => el.remove());
+        doc.querySelectorAll("script, style, nav, footer, header, aside, iframe").forEach(el => el.remove());
         const root = doc.querySelector("article, main") || doc.body;
         
         const markdown = nodeToMarkdown(root);
         res.status(200).send(markdown.replace(/\n{3,}/g, '\n\n').trim());
 
     } catch (error) {
-        // Specifieke error logging voor Vercel dashboard
-        console.error("Puppeteer Launch Error:", error.message);
-        res.status(500).json({ error: "Browser error: " + error.message });
+        res.status(500).json({ error: "FIX: " + error.message });
     } finally {
-        if (browser) {
-            await browser.close();
-        }
+        if (browser) await browser.close();
     }
 }
 
@@ -70,12 +57,9 @@ function nodeToMarkdown(node) {
             switch(tag) {
                 case "h1": md += `\n# ${inner}\n`; break;
                 case "h2": md += `\n## ${inner}\n`; break;
-                case "p": case "div": md += `\n${inner}\n`; break;
-                case "strong": case "b": md += `**${inner}**`; break;
+                case "p": md += `\n${inner}\n`; break;
                 case "a": md += ` [${inner.trim()}](${child.getAttribute('href') || '#'}) `; break;
                 case "li": md += `\n- ${inner}`; break;
-                case "pre": md += `\n\`\`\`\n${child.textContent.trim()}\n\`\`\`\n`; break;
-                case "br": md += "\n"; break;
                 default: md += inner;
             }
         }
