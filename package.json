@@ -1,8 +1,8 @@
 {
-  "name": "ultimate-html-to-markdown",
-  "version": "1.0.0",
+  "name": "html-to-markdown-ultimate",
+  "version": "1.1.0",
   "dependencies": {
-    "@sparticuz/chromium": "123.0.1",
+    "@sparticuz/chromium-min": "123.0.1",
     "puppeteer-core": "22.6.0",
     "jsdom": "24.0.0"
   }
